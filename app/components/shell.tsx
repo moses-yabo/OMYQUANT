@@ -40,6 +40,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     };
   }, [root?.demo, root?.user?.id]);
   const navigation = useNavigation();
+  const categoryActivity = current === 'products' || current === 'livestock' ? { label: 'My orders', to: '/account#orders' } : current === 'taxis' ? { label: 'My trips', to: '/account#bookings' } : current === 'trailers' ? { label: 'My rentals', to: '/account#reservations' } : null;
+  const primaryAction = location.pathname === '/' ? (categoryActivity ?? { label: 'List your business', to: '/business' }) : { label: 'Explore marketplace', to: '/' };
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -54,8 +56,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {sections.map((s) => (
             <Link
               key={s.id}
-              className={`nav-item ${current === s.id && location.pathname === "/" ? "selected" : ""}`}
-              to={`/?section=${s.id}`}
+              className={`nav-item ${current === s.id && location.pathname === "/" && !search.has('saved') ? "selected" : ""}`}
+              to={`/?section=${s.id}${s.id === 'all' ? '' : '#listings'}`}
+              aria-current={current === s.id && location.pathname === '/' && !search.has('saved') ? 'page' : undefined}
             >
               <Icon name={s.icon} />
               {s.name}
@@ -74,7 +77,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Icon name="clock" />
             My activity
           </NavLink>
-          <Link className="nav-item" to="/?saved=1">
+          <Link className={`nav-item ${location.pathname === '/' && search.has('saved') ? 'selected' : ''}`} aria-current={location.pathname === '/' && search.has('saved') ? 'page' : undefined} to="/?saved=1#listings">
             <Icon name="heart" />
             Saved listings
           </Link>
@@ -112,8 +115,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <Icon name="user" size={17} />
               {root?.user ? root.user.name.split(" ")[0] : "Sign in"}
             </Link>
-            <Link className="button small" to="/business">
-              List your business <span>+</span>
+            <Link className="button small" to={primaryAction.to}>
+              {primaryAction.label} <Icon name="arrow" size={14}/>
             </Link>
           </div>
         </header>

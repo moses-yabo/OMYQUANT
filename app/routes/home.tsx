@@ -6,6 +6,7 @@ import { Icon } from "../components/icon";
 import { samples, sections, zar, type Listing } from "../lib/marketplace";
 import { api, configured, result } from "../.server/frontend";
 import { demoEnabled } from '../.server/demo-mode';
+import { categoryContent } from '../lib/category-content';
 
 type RecordData = {
   _id: string;
@@ -133,6 +134,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const query = params.get("q") ?? "";
   const province = params.get("province") ?? "";
   const sort = params.get("sort") ?? "recent";
+  const isLanding = section === 'all' && !params.has('saved') && !query && !province;
+  const content = categoryContent[params.has('saved') ? 'saved' : section === 'all' ? 'search' : section] ?? categoryContent.search;
   useEffect(() => {
     try {
       const value: unknown = JSON.parse(
@@ -170,7 +173,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     );
   return (
     <Shell>
-      <div className="marketplace-page">
+      <div className={`marketplace-page ${isLanding ? 'marketplace-landing' : 'marketplace-focused'}`}>
+        {isLanding ? <>
         <div className="page-intro">
           <div>
             <div className="eyebrow">ROOTED LOCALLY. CONNECTED NATIONALLY.</div>
@@ -259,7 +263,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               to={
                 i === 3
                   ? "/request/delivery"
-                  : `/?section=${["products", "taxis", "trailers"][i]}`
+                  : `/?section=${["products", "taxis", "trailers"][i]}#listings`
               }
             >
               <span className={`service-icon tone-${i}`}>
@@ -273,6 +277,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </Link>
           ))}
         </div>
+        </> : <header className="category-intro">
+          <span className="category-intro-icon"><Icon name={content.icon} size={28}/></span>
+          <div><div className="eyebrow">{params.has('saved') ? 'YOUR SAVED FINDS' : sections.find(s => s.id === section)?.name ?? 'MARKETPLACE SEARCH'}</div><h1>{content.title}</h1><p>{content.description}</p></div>
+          <Link className="button" to={`?${params}#listings`}>{content.action}<Icon name="arrow" size={16}/></Link>
+        </header>}
         <section id="listings" className="listing-section">
           <div className="section-heading">
             <div>
@@ -291,7 +300,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               {loaderData.preview ? "sample listings" : "listings"}
             </span>
           </div>
-          <Form method="get" className="search-bar">
+          <Form method="get" action="/#listings" className="search-bar">
             <input type="hidden" name="section" value={section} />
             {params.has("saved") && (
               <input type="hidden" name="saved" value="1" />
@@ -302,7 +311,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 aria-label="Search listings"
                 name="q"
                 defaultValue={query}
-                placeholder="What are you looking for?"
+                placeholder={isLanding ? 'What are you looking for?' : content.placeholder}
                 key={query}
               />
             </label>
@@ -351,7 +360,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               <Link
                 key={s.id}
                 className={section === s.id ? "tab active" : "tab"}
-                to={`/?section=${s.id}${params.has("saved") ? "&saved=1" : ""}`}
+                to={`/?section=${s.id}${params.has("saved") ? "&saved=1" : ""}#listings`}
               >
                 <Icon name={s.icon} size={16} />
                 {s.id === "all" ? "All listings" : s.name}
@@ -365,7 +374,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               available when the marketplace is connected.
             </div>
           )}
-          {loaderData.demo && <p className="notice">Browser demo mode · Bookings are saved in this browser’s localStorage. No sign-in needed, no real provider contacted, and no payment taken.</p>}
+          {loaderData.demo && <p className="notice">Demo marketplace · Sample listings. Sign in to try orders, trips and rentals. No real payment is taken.</p>}
           {loaderData.error && (
             <p role="alert" className="notice error">
               {loaderData.error} <Link to="/login">Sign in</Link>
