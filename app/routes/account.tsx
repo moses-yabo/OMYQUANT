@@ -160,7 +160,7 @@ export default function Account({
               </p>
             )}
             {loaderData.groups.map((group) => (
-              <section className="form-panel" key={group.kind}>
+              <section className="form-panel" id={group.kind} key={group.kind}>
                 <h2 style={{ textTransform: "capitalize" }}>{group.kind}</h2>
                 {group.error && <p className="notice error">{group.error}</p>}
                 {!group.error && group.items.length === 0 && (

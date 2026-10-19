@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Form, Link, useFetcher, useSearchParams } from "react-router";
 import type { Route } from "./+types/home";
 import { Shell } from "../components/shell";
@@ -497,6 +497,13 @@ function ListingDialog({
   close: () => void;
 }) {
   const fetcher = useFetcher<{ error?: string; success?: string; reference?: string }>();
+  const confirmation = useRef<HTMLElement>(null);
+  const completed = fetcher.state === 'idle' && Boolean(fetcher.data?.success);
+  const isOrder = listing.kind === 'products' || listing.kind === 'livestock';
+  const isRental = listing.kind === 'trailers';
+  useEffect(() => {
+    if (completed) confirmation.current?.scrollIntoView({ block: 'nearest' });
+  }, [completed]);
   const [count, setCount] = useState(1);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -546,6 +553,21 @@ function ListingDialog({
             <p className="notice">
               This is a sample listing. Booking isn’t available in preview mode.
             </p>
+          ) : completed ? (
+            <section className="booking-success" ref={confirmation} aria-label={isOrder ? 'Order confirmation' : isRental ? 'Rental request confirmation' : 'Booking confirmation'}>
+              <div className="booking-success-message" role="status" aria-live="polite" aria-atomic="true">
+                <span className="booking-success-icon"><Icon name="check" size={26}/></span>
+                <div>
+                  <h3>{isRental ? 'Rental request sent successfully!' : listing.kind === 'taxis' ? 'Seats reserved!' : 'Order placed successfully!'}</h3>
+                  <p>{fetcher.data?.success}</p>
+                  {fetcher.data?.reference && <p className="booking-reference">{isOrder ? 'Order reference' : isRental ? 'Rental reference' : 'Reference'}: {fetcher.data.reference}</p>}
+                </div>
+              </div>
+              <div className="booking-success-actions">
+                <Link className="button" to={isOrder ? '/account#orders' : isRental ? '/account#reservations' : '/account'}>{isOrder ? 'View my orders' : isRental ? 'View my rentals' : 'View my activity'} <Icon name="arrow" size={16}/></Link>
+                <button type="button" className="button outline" onClick={close}>Done</button>
+              </div>
+            </section>
           ) : (
             <fetcher.Form method="post" action="/reserve">
               <input type="hidden" name="demo" value={String(demo)}/>
@@ -594,7 +616,7 @@ function ListingDialog({
               <div className="notice"><strong>Estimated total: {zar(listing.price * units)}</strong><br/>{listing.kind === 'trailers' ? `${units} rental day(s). Subject to business confirmation.` : `${units} × ${zar(listing.price)}`}</div>
               <button
                 className="button full"
-                disabled={fetcher.state !== "idle" || listing.quantity < 1 || Boolean(fetcher.data?.success) || (listing.kind === 'trailers' && days <= 0)}
+                disabled={fetcher.state !== "idle" || listing.quantity < 1 || (listing.kind === 'trailers' && days <= 0)}
               >
                 {fetcher.state !== "idle"
                   ? "Submitting…"
@@ -609,11 +631,6 @@ function ListingDialog({
           {fetcher.data?.error && (
             <p role="alert" className="notice error">
               {fetcher.data.error} <Link to="/login">Sign in</Link>
-            </p>
-          )}
-          {fetcher.data?.success && (
-            <p role="status" className="notice">
-              {fetcher.data.success}{fetcher.data.reference && <> Reference: {fetcher.data.reference}.</>} <Link to="/account">View activity</Link>
             </p>
           )}
         </div>

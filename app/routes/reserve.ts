@@ -82,8 +82,10 @@ export async function clientAction({
     return {
       success:
         kind === "trailers"
-          ? "Local trailer request saved. Simulate approval in My activity."
-          : "Booking saved in your browser.",
+          ? "Your trailer rental request is saved in this browser. You can simulate business approval in My rentals."
+          : kind === 'products' || kind === 'livestock'
+            ? "Your farmers’ market order has been placed and saved in this browser."
+            : "Your seats have been reserved and saved in this browser.",
       reference: booking._id,
     };
   } catch (error) {
