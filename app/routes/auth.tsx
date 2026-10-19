@@ -3,10 +3,11 @@ import type { Route } from "./+types/auth";
 import { Shell } from "../components/shell";
 import { Icon } from "../components/icon";
 import { api, mutationOrigin, result } from "../.server/frontend";
+import { demoEnabled } from '../.server/demo-mode';
 export function loader({ params }: Route.LoaderArgs) {
   if (!["login", "register"].includes(params.mode))
     throw new Response("Page not found", { status: 404 });
-  return null;
+  return { local: demoEnabled() };
 }
 export function meta() {
   return [{ title: "Your account | OMYQUANT" }];
@@ -45,7 +46,17 @@ export async function action({ request, params }: Route.ActionArgs) {
     },
   });
 }
-export default function Auth({ params, actionData }: Route.ComponentProps) {
+export async function clientAction({ request, serverAction, params }: Route.ClientActionArgs) {
+  const form = await request.clone().formData();
+  if (form.get('local') !== 'true') return serverAction();
+  const { registerBrowser, loginBrowser, browserAuthError } = await import('../lib/browser-auth');
+  try {
+    const input = { email: String(form.get('email')), password: String(form.get('password')) };
+    if (params.mode === 'register') { await registerBrowser({ ...input, name: String(form.get('name')) }); return redirect('/login?registered=1'); }
+    await loginBrowser(input); return redirect('/account');
+  } catch (error) { return { error: browserAuthError(error) }; }
+}
+export default function Auth({ params, actionData, loaderData }: Route.ComponentProps) {
   const register = params.mode === "register";
   const navigation = useNavigation();
   return (
@@ -82,6 +93,8 @@ export default function Auth({ params, actionData }: Route.ComponentProps) {
             </p>
           )}
           <Form method="post">
+            <input type="hidden" name="local" value={String(loaderData.local)}/>
+            {loaderData.local && <p className="notice">Browser-only demo account. Saved in localStorage on this browser; not server-verified authentication.</p>}
             {register && (
               <label>
                 Your name

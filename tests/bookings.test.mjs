@@ -215,12 +215,7 @@ test("production server serves React Router, static assets and Socket.IO togethe
     const asset = await fetch(url + "/images/trailer.svg");
     assert.equal(asset.status, 200);
     assert.match(asset.headers.get("Content-Type"), /image\/svg/);
-    const email = `socket-${Date.now()}@example.com`;
-    await fetch(url + '/api/v1/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Socket test', email, password: 'test-password-long-enough' }) });
-    const login = await fetch(url + '/api/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'test-password-long-enough' }) });
-    assert.equal(login.status, 200);
     socket = client(url, {
-      extraHeaders: { Cookie: login.headers.get('Set-Cookie').split(';')[0] },
       auth: { room: "d".repeat(64) },
       reconnection: false,
     });

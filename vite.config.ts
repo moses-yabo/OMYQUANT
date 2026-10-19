@@ -5,7 +5,7 @@ import { attachRealtime } from './scripts/realtime.ts';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  for (const key of ['MONGODB_URI', 'APP_ORIGIN', 'DEMO_MODE', 'LOCAL_AUTH', 'LOCAL_AUTH_DIR', 'JWT_SECRET', 'AUTH_COOKIE_SECURE']) {
+  for (const key of ['MONGODB_URI', 'APP_ORIGIN', 'DEMO_MODE']) {
     if (env[key] !== undefined && process.env[key] === undefined) process.env[key] = env[key];
   }
   return {

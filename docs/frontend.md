@@ -15,7 +15,7 @@ Loaders and actions call the existing domain API on the server through `app/.ser
 
 ## Preview and live data
 
-If `MONGODB_URI` is absent, local development enables clearly labeled [sample bookings](local-bookings.md). Register and sign in using [SQLite-backed JWT auth](local-auth.md); bookings persist in account-specific browser localStorage. Orders, seats and trailer reservations can be reviewed and cancelled in My activity, and trailer business approval/pickup/return can be simulated. Business/request persistence still requires MongoDB. Set `DEMO_MODE=false` to use a read-only catalog preview. Production disables demo mode unless explicitly enabled. When MongoDB is configured, the app uses that backend; connection failures never substitute sample inventory.
+If `MONGODB_URI` is absent, local development enables [browser-only demo accounts](local-auth.md) and [sample bookings](local-bookings.md), all persisted in localStorage. Orders, seats and trailer reservations can be reviewed and cancelled in My activity, and trailer business approval/pickup/return can be simulated. Business/request persistence still requires MongoDB. Set `DEMO_MODE=false` to use a read-only catalog preview. Production requires `DEMO_MODE=true` for browser demo mode. Configuring MongoDB selects the real backend instead.
 
 Search and province filters are applied to live agricultural/trailer API queries; taxi route text filtering is applied to loaded departures. Pagination retrieves up to 100 records per service per page. Saved listings are references, not offline inventory, so saved records must appear in the loaded page to be displayed. The supplier directory and more advanced provider discovery remain future work.
 

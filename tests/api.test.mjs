@@ -37,10 +37,10 @@ test('cross-site requests cannot mutate authenticated resources', async () => {
     assert.equal(response.status, 200, path);
   }
 });
-test('customer activity requires a signed-in account', async () => {
+test('browser account activity loads its client authentication boundary', async () => {
   const response = await handle(new Request('http://localhost/account'));
-  assert.equal(response.status, 302);
-  assert.equal(response.headers.get('Location'), '/login');
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /Loading browser bookings/);
 });
 test('frontend form actions reject cross-origin requests', async () => {
   const original = console.error;

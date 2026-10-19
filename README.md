@@ -6,7 +6,7 @@ See [backend setup, endpoints and implementation limits](docs/backend.md). Copy 
 
 The [marketplace frontend](docs/frontend.md) includes browsing, saved listings, sign-in, customer requests/activity and business onboarding. Without MongoDB, sample bookings persist in browser **localStorage**, with **Socket.IO** refresh notifications between connected tabs. See [local bookings and realtime setup](docs/local-bookings.md).
 
-Registration and login work locally using **jose JWTs** and a persistent **SQLite** account database. See [local authentication](docs/local-auth.md). Tokens stay in HttpOnly cookies; sample bookings remain in account-specific browser storage.
+Demo registration, login, **jose JWT sessions** and bookings all persist in browser **localStorage**. See [browser authentication](docs/local-auth.md). No SQLite account database is used. Demo JWTs are browser-only; server-verified authentication requires the real backend.
 
 ## Starter framework reference
 

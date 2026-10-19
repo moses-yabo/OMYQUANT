@@ -9,16 +9,30 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
-import { api, result } from './.server/frontend';
-import { demoEnabled } from './.server/demo-mode';
+import { api, result } from "./.server/frontend";
+import { demoEnabled } from "./.server/demo-mode";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  if (!request.headers.get('Cookie')) return { user: null, demo: demoEnabled() };
-  const response = await api(request, 'users/me');
+  if (demoEnabled()) return { user: null, demo: true };
+  if (!request.headers.get("Cookie"))
+    return { user: null, demo: demoEnabled() };
+  const response = await api(request, "users/me");
   const payload = await result<{ id: string; name: string }>(response);
-  return { user: response.ok ? payload.data ?? null : null, demo: demoEnabled() };
+  return {
+    user: response.ok ? (payload.data ?? null) : null,
+    demo: demoEnabled(),
+  };
 }
-export function headers() { return { 'Cache-Control': 'no-store' }; }
+export async function clientLoader({ serverLoader }: Route.ClientLoaderArgs) {
+  const loaded = await serverLoader();
+  if (!loaded.demo) return loaded;
+  try { const { currentBrowserUser } = await import('./lib/browser-auth'); return { ...loaded, user: await currentBrowserUser() }; }
+  catch { return { ...loaded, user: null }; }
+}
+clientLoader.hydrate = true as const;
+export function headers() {
+  return { "Cache-Control": "no-store" };
+}
 
 export const links: Route.LinksFunction = () => [
   { rel: "icon", type: "image/png", href: "/images/favicon.png?v=2" },
@@ -44,7 +58,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <a href="#main-content" className="skip-link">Skip to content</a>
+        <a href="#main-content" className="skip-link">
+          Skip to content
+        </a>
         {children}
         <ScrollRestoration />
         <Scripts />

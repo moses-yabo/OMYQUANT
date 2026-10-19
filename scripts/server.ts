@@ -1,15 +1,25 @@
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
-import { createRequestListener } from "@react-router/node";
+import { createRequestListener } from '@remix-run/node-fetch-server';
+import { createRequestHandler } from 'react-router';
 import { attachRealtime } from "./realtime.js";
 import type { ServerBuild } from "react-router";
 const buildPath = "../server/index.js";
 const build = (await import(buildPath)) as ServerBuild;
 
-const app = createRequestListener({
-  build,
-  mode: process.env.NODE_ENV ?? "production",
+const publicUrl = process.env.APP_ORIGIN || process.env.RENDER_EXTERNAL_URL;
+const publicOrigin = publicUrl ? new URL(publicUrl) : undefined;
+if (publicOrigin && !['http:', 'https:'].includes(publicOrigin.protocol)) throw new Error('APP_ORIGIN must be an HTTP or HTTPS URL');
+if (publicOrigin) process.env.APP_ORIGIN = publicOrigin.origin;
+else if (!process.env.APP_ORIGIN) delete process.env.APP_ORIGIN;
+// Pin the externally visible origin when TLS terminates at Render's proxy.
+// Do not trust arbitrary Forwarded headers or disable React Router's CSRF check.
+const handleRequest = createRequestHandler(build, process.env.NODE_ENV ?? 'production');
+const app = createRequestListener(request => handleRequest(request), {
+  host: publicOrigin?.host,
+  protocol: publicOrigin?.protocol,
+  trustProxy: false,
 });
 const root = resolve("build/client");
 const types: Record<string, string> = {

@@ -1,21 +1,20 @@
-# Local authentication with jose JWTs
+# Browser-only accounts
 
-Registration and login now use a real server-side account store when MongoDB is absent. Start `npm run dev`, create an account at `/register`, then sign in at `/login`. No seeded credentials or automatic demo identity are used.
+Without MongoDB, account registration, login and logout run through React Router client actions. They persist in browser localStorage, not SQLite or server files.
 
-The built-in Node SQLite database stores accounts and revocable sessions in `.local/auth.sqlite`, excluded from Git. Use Node 24 as in the Docker image. This database and its signing key survive app restarts. Back up the `.local` directory if you need to preserve accounts. The optional `LOCAL_AUTH_DIR` environment variable changes its location.
+- `omyquant.accounts.v1`: names, normalized emails, account IDs, random salts and PBKDF2-SHA256 password hashes (100,000 iterations). Plaintext passwords are not saved.
+- `omyquant.session.v1`: the signed JWT string, with a 12-hour expiry.
+- `omyquant.demo-jwt-key.v1`: the browser demo's random HS256 signing key.
+- `omyquant.bookings.v1:<userId>`: sample bookings for that browser account.
 
-Passwords use scrypt with a unique random salt. Public registration rejects administrator fields and every local account is a customer. Password hashes never leave the server. Login attempts are limited to ten per normalized email per 15-minute fixed window. Registration is limited per email too; public deployment still needs ingress-level abuse limits.
+Register at `/register`, sign in at `/login`, then view bookings at `/account`. Reloading or restarting the server retains the browser data. Logging out removes the session, retaining accounts and bookings. Clearing site storage removes all browser accounts and bookings. A different browser, profile, hostname or port has separate data.
 
-`jose` signs HS256 JWTs containing a subject, unique session ID, issuer, audience, issue time and expiry. Verification pins the algorithm, issuer and audience and requires those claims. JWTs expire after 12 hours. SQLite stores session IDs and expiration times so logout revokes the JWT immediately; token verification also checks account activity and session existence.
+`jose` signs the demo JWT after the browser password check, stores it in localStorage, and verifies its signature, fixed HS256 algorithm, issuer, audience, required claims and expiry when restoring the user. Logout deletes the JWT. Invalid, expired and old-format sessions are removed and require a fresh sign-in.
 
-JWTs are sent in the `omyquant_jwt` HttpOnly, SameSite=Lax cookie. They are never written to browser localStorage or exposed in a JSON login response. Production cookies use Secure. For a production-mode server used strictly on plain HTTP localhost, explicitly set `AUTH_COOKIE_SECURE=false`; use Secure cookies for deployed HTTPS environments.
+This is demo authentication, not server-verified access control. The signing key is also browser-owned, so a browser user can create replacement tokens. Password hashing and JWT signatures do not make client-only identity authoritative. These demo JWTs are never sent to protected backend APIs or accepted by the server. Real server authentication requires a server-held key and account persistence such as MongoDB.
 
-A cryptographically random signing key is generated and stored in SQLite on first use. Alternatively set `JWT_SECRET` to at least 32 bytes in the server environment. Do not put it in a `VITE_` variable. Rotating the signing key invalidates existing tokens. Deleting the database removes accounts, sessions and the generated key.
+The previous SQLite implementation has been removed. Existing `.local/auth.sqlite` files are no longer opened or modified and are not imported into browser storage. Register a browser account to start using the requested storage mode.
 
-Socket.IO verifies the same JWT before accepting a local connection and uses the verified user ID for its room. A browser-supplied room cannot impersonate another local account. Booking-change messages recheck the session before relaying.
+Enable this mode with `DEMO_MODE=true` and leave `MONGODB_URI` unset. It is enabled by default in development without MongoDB. A deployed build requires JavaScript and HTTPS for browser crypto and storage APIs.
 
-Sample bookings remain in localStorage under `omyquant.bookings.v1:<userId>`. Creating or changing them first verifies the cookie through `/api/v1/users/me`; My activity requires sign-in. Old unassigned demo bookings are not automatically imported into an account. These browser records remain editable development data; authentication does not make localStorage inventory authoritative or synchronize it across devices.
-
-This local account backend supports `/api/v1/auth/register`, `/auth/login`, `/auth/logout` and `/users/me`. Business and production marketplace persistence still require MongoDB. Configuring `MONGODB_URI` selects the existing MongoDB authentication backend, which currently retains its opaque-session implementation; local SQLite accounts are not migrated automatically.
-
-Jest integration tests exercise local registration, duplicate emails, role rejection, password hashing, JWT tampering/expiry/audience rejection, session persistence across restarts, logout revocation, throttling and authenticated Socket.IO connections in an isolated temporary database.
+Jest tests exercise registration, normalized duplicate detection, password hashing, login, logout, expiration, invalid passwords and independent browser stores. MongoDB still backs non-demo server APIs.

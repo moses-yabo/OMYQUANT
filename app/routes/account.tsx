@@ -26,11 +26,7 @@ const groups = {
 };
 export async function loader({ request }: Route.LoaderArgs) {
   if (demoEnabled()) {
-    const response = await api(request, 'users/me');
-    if (response.status === 401) return redirect('/login');
-    const session = await result<{ id: string; name: string; email: string }>(response);
-    if (!response.ok || !session.data) throw new Response('Account service unavailable', { status: 503 });
-    return data({ user: session.data, groups: Object.keys(groups).map(kind => ({ kind, items: [] as Activity[], error: '' })), preview: false, demo: true }, { headers: { 'Cache-Control': 'no-store' } });
+    return data({ user: null, groups: Object.keys(groups).map(kind => ({ kind, items: [] as Activity[], error: '' })), preview: false, demo: true }, { headers: { 'Cache-Control': 'no-store' } });
   }
   if (!configured())
     return {
@@ -101,15 +97,18 @@ export async function action({ request }: Route.ActionArgs) {
 export async function clientLoader({ serverLoader }: Route.ClientLoaderArgs) {
   const loaded = await serverLoader();
   if (!loaded.demo) return loaded;
+  const { currentBrowserUser } = await import('../lib/browser-auth');
+  const user = await currentBrowserUser(); if (!user) throw redirect('/login');
   try {
-    const { localHistory } = await import('../lib/local-bookings'); const bookings = localHistory(loaded.user?.id);
-    return { ...loaded, groups: Object.keys(groups).map(kind => ({ kind, items: bookings.filter(b => kind === 'orders' ? ['products', 'livestock'].includes(b.kind) : kind === 'bookings' ? b.kind === 'taxis' : kind === 'reservations' ? b.kind === 'trailers' : false), error: '' })) };
+    const { localHistory } = await import('../lib/local-bookings'); const bookings = localHistory(user.id);
+    return { ...loaded, user, groups: Object.keys(groups).map(kind => ({ kind, items: bookings.filter(b => kind === 'orders' ? ['products', 'livestock'].includes(b.kind) : kind === 'bookings' ? b.kind === 'taxis' : kind === 'reservations' ? b.kind === 'trailers' : false), error: '' })) };
   } catch (error) { return { ...loaded, groups: [{ kind: 'Local bookings', items: [] as Activity[], error: error instanceof Error ? error.message : 'Browser storage is unavailable.' }] }; }
 }
 clientLoader.hydrate = true as const;
 export function HydrateFallback() { return <Shell><div className="form-page"><p className="notice">Loading browser bookings…</p></div></Shell>; }
 export async function clientAction({ request, serverAction }: Route.ClientActionArgs) {
   const form = await request.clone().formData();
+  if (form.get('local') === 'true' && form.get('intent') === 'logout') { const { logoutBrowser } = await import('../lib/browser-auth'); logoutBrowser(); return redirect('/login'); }
   if (form.get('demo') !== 'true') return serverAction();
   try { const { updateLocal } = await import('../lib/local-bookings'); await updateLocal(String(form.get('id')), form.get('intent') === 'demo-status' ? String(form.get('status')) : 'cancelled'); return { error: '' }; }
   catch (error) { return { error: error instanceof Error ? error.message : 'Unable to update local booking.' }; }
@@ -150,6 +149,7 @@ export default function Account({
         ) : (
           <>
             {<Form method="post">
+              <input type="hidden" name="local" value={String(loaderData.demo)}/>
               <button className="text-button" name="intent" value="logout">
                 Sign out
               </button>

@@ -1,4 +1,5 @@
 import { io, type Socket } from "socket.io-client";
+import { currentBrowserUser } from './browser-auth';
 import type { ServerEvents, ClientEvents } from '../../scripts/realtime';
 import { samples } from "./marketplace";
 import {
@@ -19,11 +20,9 @@ export function localListings(accountId?: string | null) {
   return samples.map((l) => ({ ...l, quantity: available(l, bookings) }));
 }
 async function write<T>(change: (key: string) => T) {
-  const response = await fetch('/api/v1/users/me', { credentials: 'same-origin', cache: 'no-store' });
-  if (!response.ok) throw new Error('Please sign in before creating or changing a booking.');
-  const session = await response.json() as { data: { id: string } };
-  if (!session.data?.id) throw new Error('Your account session is unavailable. Please sign in.');
-  const key = `${storageKey}:${session.data.id}`;
+  const user = await currentBrowserUser();
+  if (!user) throw new Error('Please sign in before creating or changing a booking.');
+  const key = `${storageKey}:${user.id}`;
   // Web Locks serializes read/validate/write across tabs sharing this origin.
   if (!navigator.locks)
     throw new Error(
@@ -73,7 +72,7 @@ export function connectLocalRealtime(
   const current = socket;
   const changed = () => refresh();
   const storage = (event: StorageEvent) => {
-    if (event.key?.startsWith(storageKey + ':') || event.key === null) refresh();
+    if (event.key?.startsWith(storageKey + ':') || event.key === 'omyquant.session.v1' || event.key === null) refresh();
   };
   current.on("connect", () => {
     state(true);
@@ -84,10 +83,12 @@ export function connectLocalRealtime(
   current.on("bookings:refresh", changed);
   window.addEventListener("storage", storage);
   window.addEventListener("omyquant:bookings-changed", changed);
+  window.addEventListener('omyquant:auth-changed', changed);
   return () => {
     current.disconnect();
     if (socket === current) socket = undefined;
     window.removeEventListener("storage", storage);
     window.removeEventListener("omyquant:bookings-changed", changed);
+    window.removeEventListener('omyquant:auth-changed', changed);
   };
 }

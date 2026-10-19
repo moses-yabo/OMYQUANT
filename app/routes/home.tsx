@@ -33,12 +33,11 @@ export function meta() {
 }
 export async function loader({ request }: Route.LoaderArgs) {
   if (!configured()) {
-    const session = request.headers.get('Cookie') ? await result<{ id: string }>(await api(request, 'users/me')) : null;
     return {
       listings: samples,
       preview: !demoEnabled(),
       demo: demoEnabled(),
-      accountId: session?.data?.id ?? null,
+      accountId: null,
       error: "",
       page: 1,
       hasNext: false,
@@ -121,7 +120,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 export async function clientLoader({ serverLoader }: Route.ClientLoaderArgs) {
   const data = await serverLoader();
   if (!data.demo) return data;
-  try { const { localListings } = await import('../lib/local-bookings'); return { ...data, listings: localListings(data.accountId) }; }
+  try { const { localListings } = await import('../lib/local-bookings'); const { currentBrowserUser } = await import('../lib/browser-auth'); return { ...data, listings: localListings((await currentBrowserUser())?.id) }; }
   catch (error) { return { ...data, error: error instanceof Error ? error.message : 'Browser storage is unavailable.' }; }
 }
 clientLoader.hydrate = true as const;

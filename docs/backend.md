@@ -1,6 +1,6 @@
 # OMYQUANT server modules
 
-Local development now supports [SQLite accounts and jose JWT authentication](local-auth.md) without MongoDB. The MongoDB session implementation described below remains available when `MONGODB_URI` is configured.
+Without MongoDB, [demo accounts, sessions and bookings use browser localStorage](local-auth.md). No SQLite backend is used. The MongoDB authentication implementation described below remains available when `MONGODB_URI` is configured.
 
 This repository began as a React Router Framework Mode starter, not the legacy Siyaya backend described in the attachment. There were no existing backend controllers, schemas, or routes to migrate. Following the clarified requirement, the backend uses React Router resource routes, loaders and actions in the same deployment as the frontend. The installed React Router version is 8; it has not been downgraded to version 7.
 

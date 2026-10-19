@@ -7,7 +7,6 @@ import { resources, businessSchema, deliverySchema } from './modules/resources';
 import { placeOrder, bookSeats, cancelBooking, changeReservation } from './modules/inventory';
 import { manage, owns } from './shared/access';
 import { ApiError, id, location, money, page, quantity, text } from './shared/http';
-import { localAuthEnabled, registerLocal, loginLocal, authenticateLocalCookie, logoutLocal, jwtCookie, LocalAuthError } from '../../scripts/local-auth';
 
 const credentials = z.object({ email: z.email().toLowerCase(), password: z.string().min(12).max(128) }).strict();
 const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
@@ -38,19 +37,7 @@ export async function handleApi(request: Request, path: string) {
       if (request.headers.get('Sec-Fetch-Site') === 'cross-site') throw new ApiError(403, 'Cross-site mutation denied');
     }
     if (path === 'health' && method === 'GET') return json({ service: 'OMYQUANT', framework: 'React Router' });
-    if (localAuthEnabled() && ['auth/register', 'auth/login', 'auth/logout', 'users/me'].includes(path)) {
-      if (path === 'auth/register' && method === 'POST') return json(await registerLocal(credentials.extend({ name: text }).parse(await body(request))), 201);
-      if (path === 'auth/login' && method === 'POST') {
-        const input = credentials.parse(await body(request)); const session = await loginLocal(input.email, input.password);
-        return json({ id: session.user.id, expiresIn: session.expiresIn }, 200, { 'Set-Cookie': jwtCookie(session.token) });
-      }
-      if (path === 'users/me' && method === 'GET') return json((await authenticateLocalCookie(request.headers.get('Cookie'))).user);
-      if (path === 'auth/logout' && method === 'POST') {
-        try { await logoutLocal(request.headers.get('Cookie')); } catch (error) { if (!(error instanceof LocalAuthError) || error.status !== 401) throw error; }
-        return json(null, 200, { 'Set-Cookie': jwtCookie('', true) });
-      }
-      throw new ApiError(405, 'Method not allowed');
-    }
+    if (!process.env.MONGODB_URI && ['auth/register', 'auth/login', 'auth/logout', 'users/me'].includes(path)) throw new ApiError(503, 'Use browser demo authentication while MongoDB is disconnected.');
     await connect();
     if (path === 'auth/register' && method === 'POST') {
       const input = credentials.extend({ name: text }).parse(await body(request));
@@ -337,7 +324,6 @@ export async function handleApi(request: Request, path: string) {
     }
     throw new ApiError(404, 'Endpoint not found');
   } catch (error) {
-    if (error instanceof LocalAuthError) return Response.json({ error: { message: error.message } }, { status: error.status, headers });
     if (error instanceof ApiError) return Response.json({ error: { message: error.message } }, { status: error.status, headers });
     if (error instanceof z.ZodError) return Response.json({ error: { message: 'Validation failed', issues: error.issues } }, { status: 400, headers });
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === 11000) return Response.json({ error: { message: 'Resource already exists' } }, { status: 409, headers });
