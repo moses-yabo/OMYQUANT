@@ -1,0 +1,7 @@
+.error-page { width: 100%; margin-inline: auto; padding: 4rem 1rem 1rem; }
+.error-page-details { width: 100%; padding: 1rem; overflow-x: auto; }
+@media (min-width: 40rem) { .error-page { max-width: 40rem; } }
+@media (min-width: 48rem) { .error-page { max-width: 48rem; } }
+@media (min-width: 64rem) { .error-page { max-width: 64rem; } }
+@media (min-width: 80rem) { .error-page { max-width: 80rem; } }
+@media (min-width: 96rem) { .error-page { max-width: 96rem; } }

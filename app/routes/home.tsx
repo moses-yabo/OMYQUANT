@@ -7,6 +7,7 @@ import { samples, sections, zar, type Listing } from "../lib/marketplace";
 import { api, configured, result } from "../.server/frontend";
 import { demoEnabled } from '../.server/demo-mode';
 import { categoryContent } from '../lib/category-content';
+import { taxiSeatsAvailable } from '../lib/taxi-capacity';
 
 type RecordData = {
   _id: string;
@@ -19,6 +20,7 @@ type RecordData = {
   images?: string[];
   quantity?: number;
   remaining?: number;
+  capacity?: number;
   startsAt?: string;
   route?: { name?: string; stops?: { address?: string; province?: string }[] };
 };
@@ -103,7 +105,7 @@ export async function loader({ request }: Route.LoaderArgs) {
           item.location?.province ?? item.route?.stops?.[0]?.province ?? "",
         image: item.images?.[0] ?? "",
         tag: sections.find((s) => s.id === kind)?.name ?? "",
-        quantity: item.remaining ?? item.quantity ?? 1,
+        quantity: kind === 'taxis' && item.capacity !== undefined && item.remaining !== undefined ? taxiSeatsAvailable(item.capacity, item.remaining) : item.remaining ?? item.quantity ?? 1,
       });
   }
   return {
@@ -622,6 +624,7 @@ function ListingDialog({
                   directly.
                 </p>
               )}
+              {listing.kind === 'taxis' && <p className="muted">Up to 15 passengers per taxi. If this taxi fills before you confirm, your group may move to the next scheduled taxi on the same operator and route at the same fare. The departure time may be later; check your confirmation.</p>}
               <div className="notice"><strong>Estimated total: {zar(listing.price * units)}</strong><br/>{listing.kind === 'trailers' ? `${units} rental day(s). Subject to business confirmation.` : `${units} × ${zar(listing.price)}`}</div>
               <button
                 className="button full"

@@ -3,6 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "admin:grant": "node scripts/admin.ts",
+    "admin:revoke": "node scripts/admin.ts --revoke",
+    "images:migrate-samples": "node scripts/migrate-sample-images.ts",
+    "seed": "node scripts/seed.ts",
+    "seed:preview": "node scripts/seed.ts --dry-run",
     "build": "react-router build && tsc -p tsconfig.server.json",
     "dev": "react-router dev",
     "start": "node --env-file-if-exists=.env build/runtime/server.js",
@@ -19,6 +24,7 @@
     "isbot": "^5.1.36",
     "jose": "^6.2.12",
     "mongoose": "^9.11.2",
+    "oauth4webapi": "^3.8.8",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router": "^8.4.0",
@@ -28,13 +34,11 @@
   },
   "devDependencies": {
     "@react-router/dev": "^8.4.0",
-    "@tailwindcss/vite": "^4.2.2",
     "@types/jest": "^30.0.0",
     "@types/node": "^22",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "jest": "^30.5.2",
-    "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "vite": "^8.0.3"
   }

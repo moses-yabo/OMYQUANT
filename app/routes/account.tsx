@@ -193,6 +193,7 @@ export default function Account({
                         {item.status.replaceAll("_", " ")}
                       </span>
                       {item.start && <p className="muted">Collection: {new Date(item.start).toLocaleDateString('en-ZA', { timeZone: 'Africa/Johannesburg' })}</p>}
+                      {group.kind === 'bookings' && 'startsAt' in item && item.startsAt && <p className="muted">Departure: {new Date(item.startsAt).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })} (South African time)</p>}
                       {loaderData.demo && group.kind === 'reservations' && ['requested', 'confirmed', 'picked_up'].includes(item.status) && <Form method="post"><input type="hidden" name="demo" value="true"/><input type="hidden" name="intent" value="demo-status"/><input type="hidden" name="id" value={item._id}/><button className="button outline small" name="status" value={item.status === 'requested' ? 'confirmed' : item.status === 'confirmed' ? 'picked_up' : 'returned'} disabled={navigation.state !== 'idle'}>{item.status === 'requested' ? 'Simulate business approval' : item.status === 'confirmed' ? 'Simulate pickup' : 'Simulate return'}</button>{item.status === 'requested' && <button className="text-button" name="status" value="rejected" disabled={navigation.state !== 'idle'}>Simulate rejection</button>}</Form>}
                       {["orders", "bookings", "reservations"].includes(
                         group.kind,

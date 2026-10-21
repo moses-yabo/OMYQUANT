@@ -10,12 +10,14 @@ import {
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "./icon";
 import { sections } from "../lib/marketplace";
+import { NotificationSettings } from './notification-settings';
+import './admin-navigation.css';
 export function Shell({ children }: { children: React.ReactNode }) {
   const [search] = useSearchParams();
   const current = search.get("section") ?? "all";
   const location = useLocation();
   const root = useRouteLoaderData<{
-    user: { id?: string; name: string } | null;
+    user: { id?: string; name: string; admin?: boolean; superAdmin?: boolean } | null;
     demo?: boolean;
   }>("root");
   const [connected, setConnected] = useState(false);
@@ -40,6 +42,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     };
   }, [root?.demo, root?.user?.id]);
   const navigation = useNavigation();
+  const isSuperAdmin = !root?.demo && Boolean(root?.user?.superAdmin);
+  const isAdmin = !root?.demo && Boolean(root?.user?.admin || root?.user?.superAdmin);
   const categoryActivity = current === 'products' || current === 'livestock' ? { label: 'My orders', to: '/account#orders' } : current === 'taxis' ? { label: 'My trips', to: '/account#bookings' } : current === 'trailers' ? { label: 'My rentals', to: '/account#reservations' } : null;
   const primaryAction = location.pathname === '/' ? (categoryActivity ?? { label: 'List your business', to: '/business' }) : { label: 'Explore marketplace', to: '/' };
   return (
@@ -85,6 +89,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Icon name="store" />
             My business
           </NavLink>
+          {isAdmin && <NavLink className="nav-item" to="/admin/businesses"><Icon name="store" />Business verification</NavLink>}
+          {isSuperAdmin && <NavLink className="nav-item" to="/admin/users"><Icon name="store" />Manage administrators</NavLink>}
         </nav>
         <div className="sidebar-bottom">
           <div className="partner-card">
@@ -120,6 +126,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
         </header>
+        {isAdmin && <nav className="admin-navigation" aria-label="Administration shortcuts">
+          <span className="admin-navigation-role">{isSuperAdmin ? 'Super administrator' : 'Administrator'}</span>
+          <NavLink className="button outline small" to="/admin/businesses">Verify businesses</NavLink>
+          {isSuperAdmin && <NavLink className="button outline small" to="/admin/users">Manage administrators</NavLink>}
+        </nav>}
         {navigation.state !== "idle" && (
           <div
             className="navigation-progress"
@@ -128,6 +139,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           />
         )}
         <main id="main-content">{children}</main>
+        {root?.user && <NotificationSettings />}
         {root?.demo && (
           <p className="realtime-status" role="status">
             {connected

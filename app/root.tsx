@@ -17,7 +17,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (!request.headers.get("Cookie"))
     return { user: null, demo: demoEnabled() };
   const response = await api(request, "users/me");
-  const payload = await result<{ id: string; name: string }>(response);
+  const payload = await result<{ id: string; name: string; admin?: boolean; superAdmin?: boolean }>(response);
   return {
     user: response.ok ? (payload.data ?? null) : null,
     demo: demoEnabled(),
@@ -90,11 +90,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
+    <main className="error-page">
       <h1>{message}</h1>
       <p>{details}</p>
       {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
+        <pre className="error-page-details">
           <code>{stack}</code>
         </pre>
       )}

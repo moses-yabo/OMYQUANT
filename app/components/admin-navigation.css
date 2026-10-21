@@ -1,0 +1,27 @@
+.admin-navigation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 18px;
+  background: #f4f7ed;
+  border-bottom: 1px solid #dce5cb;
+}
+
+.admin-navigation-role {
+  font-size: 12px;
+  font-weight: 600;
+  color: #41613e;
+  margin-right: auto;
+}
+
+.admin-navigation .button[aria-current="page"] {
+  background: #e4edda;
+  border-color: #819c63;
+}
+
+@media (max-width: 650px) {
+  .admin-navigation-role {
+    flex-basis: 100%;
+  }
+}

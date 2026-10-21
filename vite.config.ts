@@ -1,15 +1,31 @@
 import { reactRouter } from "@react-router/dev/vite";
-import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, loadEnv } from "vite";
 import { attachRealtime } from './scripts/realtime.ts';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  for (const key of ['MONGODB_URI', 'APP_ORIGIN', 'DEMO_MODE']) {
+  for (const key of ['MONGODB_URI', 'MONGODB_DB_USERNAME', 'MONGODB_PASSWORD', 'MONGODB_DB_NAME', 'APP_ORIGIN', 'DEMO_MODE', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI']) {
     if (env[key] !== undefined && process.env[key] === undefined) process.env[key] = env[key];
   }
   return {
-  plugins: [tailwindcss(), reactRouter(), { name: 'omyquant-socket-io', configureServer(server) { if (server.httpServer) { const io = attachRealtime(server.httpServer); server.httpServer.once('close', () => { void io.close(); }); } } }],
+  plugins: [
+    {
+      name: 'omyquant-devtools-probe',
+      enforce: 'pre',
+      configureServer(server) {
+        server.middlewares.use((request, response, next) => {
+          // Chrome's optional workspace discovery is not an application route.
+          const path = request.url?.split('?')[0];
+          if (path !== '/.well-known/appspecific/com.chrome.devtools.json') return next();
+          response.statusCode = 404;
+          response.setHeader('Cache-Control', 'no-store');
+          response.end();
+        });
+      },
+    },
+    reactRouter(),
+    { name: 'omyquant-socket-io', configureServer(server) { if (server.httpServer) { const io = attachRealtime(server.httpServer); server.httpServer.once('close', () => { void io.close(); }); } } },
+  ],
   resolve: {
     tsconfigPaths: true,
   },

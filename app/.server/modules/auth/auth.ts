@@ -46,7 +46,7 @@ export async function authenticate(request: Request) {
   const user =
     session && (await User.findOne({ _id: session.user, active: true }));
   if (!user) throw new ApiError(401, "Authentication required");
-  return { id: String(user._id), admin: Boolean(user.admin) };
+  return { id: String(user._id), admin: Boolean(user.admin || user.superAdmin), ...(user.superAdmin ? { superAdmin: true } : {}) };
 }
 export async function login(userId: unknown) {
   const token = randomBytes(32).toString("hex");

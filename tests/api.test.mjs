@@ -58,3 +58,14 @@ test('unknown frontend routes return 404', async () => {
   const response = await handle(new Request('http://localhost/missing-page'));
   assert.equal(response.status, 404);
 });
+
+test('Google initiation is POST-only and callback failures return safely to login', async () => {
+  const start = await handle(new Request('http://localhost/auth/google'));
+  expect(start.status).toBe(405);
+  expect(start.headers.get('Allow')).toBe('POST');
+  const callback = await handle(new Request('http://localhost/auth/google/callback?state=invalid&code=invalid'));
+  expect(callback.status).toBe(303);
+  expect(callback.headers.get('Location')).toMatch(/^\/login\?google=(unavailable|failed)$/);
+  expect(callback.headers.get('Cache-Control')).toBe('no-store');
+  expect(callback.headers.get('Set-Cookie')).toMatch(/Max-Age=0/);
+});

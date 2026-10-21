@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as db from "../database/models";
 import { ApiError, id, quantity } from "../shared/http";
 import { manage, owns, type Actor } from "../shared/access";
+import { TAXI_PASSENGER_CAPACITY } from '../../lib/taxi-capacity';
 
 export async function placeOrder(actor: Actor, body: unknown) {
   const input = z
@@ -44,11 +45,11 @@ export async function placeOrder(actor: Actor, body: unknown) {
         throw new ApiError(400, "Each order must contain a single seller");
       business = String(listing.business);
       if (
-        !(await db.Business.exists({ _id: business, active: true }).session(
+        !(await db.Business.exists({ _id: business, active: true, verified: true, types: 'farm' }).session(
           session,
         ))
       )
-        throw new ApiError(409, "Seller inactive");
+        throw new ApiError(409, "Seller is not verified or available");
       total += Number(listing.price) * item.quantity;
       if (!Number.isSafeInteger(total))
         throw new ApiError(400, "Order total exceeds supported range");
@@ -72,22 +73,45 @@ export async function placeOrder(actor: Actor, body: unknown) {
 }
 export async function bookSeats(actor: Actor, body: unknown) {
   const input = z
-    .object({ departure: id, seats: quantity })
+    .object({ departure: id, seats: quantity.max(TAXI_PASSENGER_CAPACITY) })
     .strict()
     .parse(body);
   return mongoose.connection.transaction(async (session) => {
-    const departure = await db.Departure.findOneAndUpdate(
+    let departure = await db.Departure.findOneAndUpdate(
       {
         _id: input.departure,
         status: "scheduled",
         startsAt: { $gt: new Date() },
         remaining: { $gte: input.seats },
+        $expr: { $lte: [{ $add: [{ $subtract: ['$capacity', '$remaining'] }, input.seats] }, { $min: ['$capacity', TAXI_PASSENGER_CAPACITY] }] },
       },
       { $inc: { remaining: -input.seats } },
       { new: true, session },
     );
-    if (!departure)
-      throw new ApiError(409, "Departure unavailable or insufficient seats");
+    if (!departure) {
+      const selected = await db.Departure.findOne({ _id: input.departure, status: 'scheduled', startsAt: { $gt: new Date() } }).session(session);
+      if (!selected) throw new ApiError(409, 'Departure unavailable. Please choose another scheduled taxi.');
+      // Allocate a real, separately scheduled taxi on the same operator/route.
+      // Never raise the quoted fare or split a party between vehicles.
+      departure = await db.Departure.findOneAndUpdate({
+        _id: { $ne: selected._id }, business: selected.business, route: selected.route,
+        startsAt: { $gte: selected.startsAt, $gt: new Date() }, price: selected.price, status: 'scheduled',
+        vehicle: { $ne: selected.vehicle }, remaining: { $gte: input.seats },
+        $expr: { $lte: [{ $add: [{ $subtract: ['$capacity', '$remaining'] }, input.seats] }, { $min: ['$capacity', TAXI_PASSENGER_CAPACITY] }] },
+      }, { $inc: { remaining: -input.seats } }, { new: true, session, sort: { startsAt: 1, _id: 1 } });
+      if (!departure) throw new ApiError(409, 'This taxi is full or cannot fit your group. No matching taxi is scheduled with enough seats. Please choose another departure.');
+    }
+    // Public discovery hides inactive/unverified operators; direct requests must
+    // enforce the same eligibility. Failure aborts the seat decrement as well.
+    if (
+      !(await db.Business.exists({
+        _id: departure.business,
+        active: true,
+        verified: true,
+        types: 'taxi_operator',
+      }).session(session))
+    )
+      throw new ApiError(409, "Operator is not verified or available");
     return (
       await db.Booking.create(
         [
@@ -97,6 +121,8 @@ export async function bookSeats(actor: Actor, body: unknown) {
             departure: departure._id,
             seats: input.seats,
             unitPrice: departure.price,
+            startsAt: departure.startsAt,
+            vehicle: departure.vehicle,
           },
         ],
         { session },

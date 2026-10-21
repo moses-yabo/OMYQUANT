@@ -1,6 +1,7 @@
 import { data } from "react-router";
 import type { Route } from "./+types/reserve";
 import { api, configured, mutationOrigin, result } from "../.server/frontend";
+import { notifyBookingCreated } from '../lib/web-notifications';
 export async function action({ request }: Route.ActionArgs) {
   mutationOrigin(request);
   const form = await request.formData();
@@ -38,7 +39,7 @@ export async function action({ request }: Route.ActionArgs) {
     };
   } else return data({ error: "Unknown listing type." }, { status: 400 });
   const response = await api(request, path, "POST", payload);
-  const parsed = await result<{ _id: string }>(response);
+  const parsed = await result<{ _id: string; departure?: string; startsAt?: string; vehicle?: string }>(response);
   if (!response.ok)
     return data(
       {
@@ -54,7 +55,7 @@ export async function action({ request }: Route.ActionArgs) {
       kind === "trailers"
         ? "Reservation requested. The rental business will review it."
         : kind === "taxis"
-          ? "Your seats are reserved."
+          ? `${parsed.data?.departure && parsed.data.departure !== id ? 'Your group is reserved on the next scheduled taxi for the same operator, route and fare.' : 'Your seats are reserved.'}${parsed.data?.startsAt ? ` Departure: ${new Date(parsed.data.startsAt).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })} (South African time).` : ''}`
           : "Your order has been placed.",
     reference: parsed.data?._id,
   };
@@ -64,7 +65,14 @@ export async function clientAction({
   serverAction,
 }: Route.ClientActionArgs) {
   const form = await request.clone().formData();
-  if (form.get("demo") !== "true") return serverAction();
+  if (form.get("demo") !== "true") {
+    const response = await serverAction();
+    if ('reference' in response && response.reference) {
+      const reference = response.reference;
+      void notifyBookingCreated(String(form.get('kind')), reference);
+    }
+    return response;
+  }
   try {
     const { bookLocal } = await import("../lib/local-bookings");
     const kind = String(form.get("kind"));
@@ -79,6 +87,7 @@ export async function clientAction({
           }
         : {}),
     });
+    void notifyBookingCreated(kind, booking._id, true);
     return {
       success:
         kind === "trailers"

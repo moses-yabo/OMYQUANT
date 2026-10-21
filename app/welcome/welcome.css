@@ -1,0 +1,26 @@
+.starter-welcome { display: flex; align-items: center; justify-content: center; padding-top: 4rem; padding-bottom: 1rem; }
+.starter-welcome-content { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4rem; min-height: 0; }
+.starter-welcome-header { display: flex; flex-direction: column; align-items: center; gap: 2.25rem; }
+.starter-welcome-logo { width: 500px; max-width: 100vw; padding: 1rem; }
+.starter-logo-light, .starter-logo-dark { width: 100%; }
+.starter-logo-light { display: block; }
+.starter-logo-dark { display: none; }
+.starter-welcome-resources { max-width: 300px; width: 100%; padding-inline: 1rem; }
+.starter-welcome-resources > :not(:last-child) { margin-block-end: 1.5rem; }
+.starter-welcome-nav { border: 1px solid oklch(92.8% .006 264.531); border-radius: 1.5rem; padding: 1.5rem; }
+.starter-welcome-nav > :not(:last-child) { margin-block-end: 1rem; }
+.starter-welcome-caption { line-height: 1.5rem; color: oklch(37.3% .034 259.733); text-align: center; }
+.starter-welcome-link { display: flex; align-items: center; gap: .75rem; align-self: stretch; padding: .75rem; line-height: 1.5; color: oklch(48.8% .243 264.376); }
+.starter-welcome-icon { stroke: oklch(44.6% .03 256.802); }
+@media (hover: hover) {
+  .starter-welcome-link:hover { text-decoration: underline; }
+  .starter-welcome-link:hover .starter-welcome-icon { stroke: currentColor; }
+}
+@media (prefers-color-scheme: dark) {
+  .starter-logo-light { display: none; }
+  .starter-logo-dark { display: block; }
+  .starter-welcome-nav { border-color: oklch(37.3% .034 259.733); }
+  .starter-welcome-caption { color: oklch(92.8% .006 264.531); }
+  .starter-welcome-link { color: oklch(62.3% .214 259.815); }
+  .starter-welcome-icon { stroke: oklch(87.2% .01 258.338); }
+}

@@ -3,11 +3,16 @@ import type { Route } from "./+types/business";
 import { Shell } from "../components/shell";
 import { Icon } from "../components/icon";
 import { api, configured, mutationOrigin, result } from "../.server/frontend";
+import { boundedBody, imageBucket, imageLimit, ImageError, storeImage } from '../.server/database/images';
+import { authenticate } from '../.server/modules/auth/auth';
+import { manage } from '../.server/shared/access';
+import { ApiError } from '../.server/shared/http';
 type Business = {
   _id: string;
   name: string;
   types: string[];
   verified: boolean;
+  active: boolean;
 };
 export async function loader({ request }: Route.LoaderArgs) {
   if (!configured())
@@ -36,11 +41,30 @@ export async function action({ request }: Route.ActionArgs) {
       { error: "Business tools are unavailable in preview mode.", success: "" },
       { status: 503 },
     );
-  const form = await request.formData();
+  let form: FormData;
+  try {
+    const bytes = await boundedBody(request, imageLimit + 65536);
+    form = await new Response(new Uint8Array(bytes), { headers: { 'Content-Type': request.headers.get('Content-Type') ?? '' } }).formData();
+  } catch (error) {
+    return data({ error: error instanceof ImageError ? error.message : 'Invalid form submission.', success: '' }, { status: error instanceof ImageError ? error.status : 400 });
+  }
   const get = (key: string) => String(form.get(key) ?? "");
+  let uploaded: { id: string; url: string } | undefined;
   let path: string;
   let payload: unknown;
   if (get("intent") === "product") {
+    const file = form.get('imageFile');
+    if (file instanceof File && file.size > 0) {
+      try {
+        await imageBucket();
+        const actor = await authenticate(request);
+        if (!/^[a-f0-9]{24}$/i.test(get('business'))) throw new ImageError(400, 'Select a valid farm business.');
+        await manage(actor, get('business'), 'farm');
+        uploaded = await storeImage(new Uint8Array(await file.arrayBuffer()), get('business'), file.type);
+      } catch (error) {
+        return data({ error: error instanceof ImageError || error instanceof ApiError ? error.message : 'Image upload failed. Please try again.', success: '' }, { status: error instanceof ImageError || error instanceof ApiError ? error.status : 503 });
+      }
+    }
     path = "farming/products";
     payload = {
       business: get("business"),
@@ -50,7 +74,7 @@ export async function action({ request }: Route.ActionArgs) {
       quantity: Number(form.get("quantity")),
       unit: get("unit"),
       category: get("category"),
-      images: get("image") ? [get("image")] : [],
+      images: uploaded ? [uploaded.url] : [],
       location: { address: get("address"), province: get("province") },
       status: get("status"),
     };
@@ -69,6 +93,11 @@ export async function action({ request }: Route.ActionArgs) {
       { status: 400 },
     );
   const response = await api(request, path, "POST", payload);
+  if (response.status >= 400 && response.status < 500 && uploaded) {
+    const { default: mongoose } = await import('mongoose');
+    const objectId = new mongoose.Types.ObjectId(uploaded.id);
+    await imageBucket().then(bucket => bucket.delete(objectId)).catch(() => {});
+  }
   const parsed = await result(response);
   return data(
     {
@@ -145,6 +174,7 @@ export default function BusinessPage({
                 <span className="status-pill">
                   {b.verified ? "Verified" : "Verification pending"}
                 </span>
+                {b.verified && b.active ? <Link className="button outline small" to={`/business/${b._id}/tools`}>Manage business</Link> : <p className="muted">Service tools become available after verification of an active business.</p>}
               </div>
             ))}
           </section>
@@ -205,8 +235,8 @@ export default function BusinessPage({
           </button>
         </Form>
         {(loaderData.preview ||
-          loaderData.businesses.some((b) => b.types.includes("farm"))) && (
-          <Form method="post" className="form-panel">
+          loaderData.businesses.some((b) => b.active && b.verified && b.types.includes("farm"))) && (
+          <Form method="post" encType="multipart/form-data" className="form-panel">
             <input type="hidden" name="intent" value="product" />
             <h2>Share your next harvest</h2>
             <p className="muted">
@@ -220,7 +250,7 @@ export default function BusinessPage({
                   <option value="">Select your farm business</option>
                 ) : (
                   loaderData.businesses
-                    .filter((b) => b.types.includes("farm"))
+                    .filter((b) => b.active && b.verified && b.types.includes("farm"))
                     .map((b) => (
                       <option value={b._id} key={b._id}>
                         {b.name}
@@ -293,8 +323,9 @@ export default function BusinessPage({
               </label>
             </div>
             <label>
-              Product image URL (optional)
-              <input type="url" name="image" placeholder="https://…" />
+              Product image (optional)
+              <input type="file" name="imageFile" accept="image/png,image/jpeg,image/gif,image/webp" />
+              <span className="muted">PNG, JPEG, GIF or WebP, up to 5 MiB.</span>
             </label>
             <label>
               Listing status

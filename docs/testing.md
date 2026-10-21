@@ -17,6 +17,12 @@ Run `npm test` to build React Router and execute the full Jest suite. A build is
 
 Node's assertion library is retained inside the migrated tests; Jest now owns discovery, execution, timeouts, watch mode and coverage. Expected cross-origin failures may print React Router rejection messages while the assertions pass. Coverage currently targets booking rules and the realtime server; it is not a claim of full UI coverage.
 
-The installation audit reports 19 moderate development-dependency findings propagated from a `sprintf-js` denial-of-service advisory through Jest's tooling dependencies. npm reports no available fix for this dependency chain. These findings concern the test toolchain; the Jest packages are development dependencies.
+An earlier installation audit reported 19 moderate development-dependency findings through Jest's tooling dependency chain. This is historical information, not a current security assessment; rerun a dependency audit when reviewing upgrades. Jest packages are development dependencies.
 
 Socket.IO tests import `scripts/realtime.ts` through the TypeScript transformer. Production-server tests launch `build/runtime/server.js`, compiled by `npm run build` using `tsconfig.server.json`.
+
+`tests/inventory.test.mjs` exercises server seat-booking decisions with mocked Mongoose persistence: inactive operators are rejected, unavailable departures create no booking, and successful bookings use the transaction and price snapshot. The inactive-operator regression was reproduced before the fix. These unit tests do not verify real transaction rollback, retries or concurrent database writes; a dedicated replica-set integration suite is still required.
+
+Architecture alignment documentation is indexed in [ARCHITECTURE.md](ARCHITECTURE.md) and [FEATURE_MATRIX.md](FEATURE_MATRIX.md). No lint script is configured. Browser automation, live MongoDB workflows and hosted deployment are not covered by the existing suite.
+
+`tests/google.test.mjs` covers actual OAuth/PKCE and RSA ID-token validation against intercepted provider responses, account resolution/linking decisions, one-use transaction predicates, callback failures and session rotation. `tests/server-auth.test.mjs` regression-checks existing registration, real scrypt password login, Google-only password rejection, protected routes and logout. Database calls in these suites are mocked: they do not prove MongoDB index enforcement or concurrent transaction rollback. Live Google setup and manual test steps are in [google-auth.md](google-auth.md).
