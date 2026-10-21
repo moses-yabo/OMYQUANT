@@ -1,14 +1,16 @@
 import { Server } from "socket.io";
+import { supportEvents, type SupportChange } from './support-events.js';
 export interface ClientEvents {
   "bookings:changed": () => void;
 }
 export interface ServerEvents {
+  'support:refresh': (event: { ticketId: string }) => void;
   "bookings:refresh": () => void;
 }
 interface SocketData {
   room: string;
 }
-export function attachRealtime(server: Parameters<Server["attach"]>[0]) {
+export function attachRealtime(server: Parameters<Server["attach"]>[0], options: { authenticateSupport?: (cookie: string) => Promise<{ id: string; admin: boolean }> } = {}) {
   const io = new Server<
     ClientEvents,
     ServerEvents,
@@ -50,5 +52,26 @@ export function attachRealtime(server: Parameters<Server["attach"]>[0]) {
       socket.to(room).emit("bookings:refresh");
     });
   });
+  // Separate namespace: demo room tokens never authenticate support access.
+  const support = io.of('/support');
+  support.use(async (socket, next) => {
+    try {
+      if (!options.authenticateSupport) throw new Error('Unavailable');
+      await options.authenticateSupport(socket.handshake.headers.cookie ?? '');
+      next();
+    } catch { next(new Error('Support authentication required')); }
+  });
+  const changed = (event: SupportChange) => {
+    void Promise.allSettled([...support.sockets.values()].map(async socket => {
+      try {
+        // Recheck the current session/role before each delivery, including role revocations.
+        const actor = await options.authenticateSupport!(socket.handshake.headers.cookie ?? '');
+        if (actor.admin || (!event.staffOnly && actor.id === event.reporter)) socket.emit('support:refresh', { ticketId: event.ticketId });
+      } catch { socket.disconnect(true); }
+    }));
+  };
+  supportEvents.on('changed', changed);
+  const close = io.close.bind(io);
+  io.close = (...args) => { supportEvents.off('changed', changed); return close(...args); };
   return io;
 }

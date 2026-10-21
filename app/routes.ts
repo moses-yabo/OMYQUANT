@@ -9,10 +9,12 @@ export default [
   route(":mode", "routes/auth.tsx"),
   route("reserve", "routes/reserve.ts"),
   route("account", "routes/account.tsx"),
+  route('support/:id?', 'routes/support.tsx'),
   route("request/:kind", "routes/request.tsx"),
   route("business", "routes/business.tsx"),
   route('business/:id/tools', 'routes/business-tools.tsx'),
-  route('admin', 'routes/admin-index.ts'),
+  route('admin', 'routes/admin-index.tsx'),
   route('admin/users', 'routes/admin-users.tsx'),
+  route('admin/support/:id?', 'routes/admin-support.tsx'),
   route('admin/businesses/:id?', 'routes/admin-businesses.tsx'),
 ] satisfies RouteConfig;

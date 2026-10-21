@@ -137,6 +137,7 @@ export default function BusinessPage({
         <p className="muted">
           Bring your farm, transport, rental, or delivery business to OMYQUANT.
         </p>
+        {!loaderData.preview && loaderData.signedIn && <Link className="button outline small" to="/support">Help and complaints</Link>}
         {loaderData.preview && (
           <p className="notice">
             Business tools are in preview. You can explore the forms; saving

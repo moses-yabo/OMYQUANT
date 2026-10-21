@@ -4,6 +4,7 @@ import { connectToDatabase } from "./database/connect";
 import { ImageError, validateListingImages } from './database/images';
 import { businessQueue, businessReview, verifyBusiness, findAdminAccount, setAdminAccess } from './modules/admin';
 import * as db from "./database/models";
+import { createComplaint, complaintQueue, complaintDetail, updateComplaint } from './modules/support';
 import {
   authenticate,
   digest,
@@ -213,6 +214,14 @@ export async function handleApi(request: Request, path: string) {
       }
     }
     const actor = await authenticate(request);
+    const supportMatch = path.match(/^(admin\/)?support(?:\/([a-f0-9]{24}))?$/i);
+    if (supportMatch) {
+      const administrative = Boolean(supportMatch[1]);
+      const ticket = supportMatch[2];
+      if (method === 'GET') return json(ticket ? await complaintDetail(actor, ticket, administrative) : await complaintQueue(actor, url, administrative));
+      if (method === 'POST' && !ticket && !administrative) return json(await createComplaint(actor, await body(request)), 201);
+      if (method === 'PATCH' && ticket) return json(await updateComplaint(actor, ticket, await body(request), administrative));
+    }
     if (path === 'admin/users' && method === 'GET') return json(await findAdminAccount(actor, url.searchParams.get('email') ?? ''));
     if (path === 'admin/businesses' && method === 'GET') return json(await businessQueue(actor, url));
     const adminBusiness = path.match(/^admin\/businesses\/([a-f0-9]{24})$/i);

@@ -24,7 +24,14 @@ export default defineConfig(({ mode }) => {
       },
     },
     reactRouter(),
-    { name: 'omyquant-socket-io', configureServer(server) { if (server.httpServer) { const io = attachRealtime(server.httpServer); server.httpServer.once('close', () => { void io.close(); }); } } },
+    { name: 'omyquant-socket-io', configureServer(server) { if (server.httpServer) { const io = attachRealtime(server.httpServer, { async authenticateSupport(cookie) {
+      const { handleApi } = await server.ssrLoadModule('/app/.server/api.ts');
+      const response = await handleApi(new Request('http://localhost/api/v1/users/me', { headers: { Cookie: cookie } }), 'users/me');
+      if (!response.ok) throw new Error('Authentication required');
+      const { data } = await response.json();
+      if (!data?._id) throw new Error('Authentication required');
+      return { id: String(data._id), admin: Boolean(data.admin || data.superAdmin) };
+    } }); server.httpServer.once('close', () => { void io.close(); }); } } },
   ],
   resolve: {
     tsconfigPaths: true,

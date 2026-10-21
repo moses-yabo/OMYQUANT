@@ -5,6 +5,7 @@ The authoritative schema definitions are in `app/.server/database/models.ts`; AP
 | Actual model | Main relationships and purpose |
 | --- | --- |
 | User | Name, unique email, optional hidden passwordHash (Google-only accounts have none), active flag, admin and superAdmin flags; super admins can manage regular admin access |
+| SupportTicket | Reporter, complaint/chat channel, category, subject/description, optional owned transaction reference, status, concurrency version and up to 100 authored timestamped public/internal history entries |
 | BusinessReview | Business, reviewer User, verified decision, optional reason and timestamps; created transactionally with verification changes |
 | AuthIdentity | User + provider + providerUserId; unique provider/subject pair and user/provider pair; currently Google only |
 | OAuthTransaction | Unique opaque-cookie digest, state/nonce/PKCE verifier, login/link intent, optional linking user/session digest and explicit ten-minute expiry/TTL |

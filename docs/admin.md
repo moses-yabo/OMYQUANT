@@ -1,5 +1,11 @@
 # Platform administration
 
+Both admin roles can review customer and business complaints through **Support complaints** (`/admin/support`), including damaged/late deliveries, spoiled farm goods and sick livestock. Staff can reply publicly, keep internal notes and update status. Super admins also have an overview shortcut. See [support workflows and privacy](support.md).
+
+Regular admins also use administration-only navigation while on `/admin/*`, with **Verify businesses**, **Support complaints** and sign out. They cannot access role management. Their customer pages remain available separately.
+
+Super administrators land at `/admin`, a dedicated overview showing live pending/verified business counts, active regular administrator count, recent verification decisions and direct links to both responsibilities. Their interface replaces marketplace categories, listings, partner promotions and customer shortcuts with Overview, Verify businesses, Manage administrators and Sign out. Customer-page navigation redirects them back to this workspace. Regular administrators retain their existing verification access and customers retain the marketplace. The root loader uses the server account role, never localStorage, for this routing.
+
 Sign in with a MongoDB-backed administrator account and open `/admin/businesses`, or select **Business verification** under Your space. Browser demo identities and business memberships cannot access this area. The server checks the current database role for every request.
 
 An administration bar below the header is visible on desktop and mobile for signed-in administrators. **Verify businesses** opens the review queue; super administrators also see **Manage administrators**. Regular customers and demo accounts do not see this bar.

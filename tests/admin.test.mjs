@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, jest, test } from '@jest/globals';
 import mongoose from 'mongoose';
 import * as db from '../app/.server/database/models.ts';
-import { businessQueue, businessReview, verifyBusiness, findAdminAccount, setAdminAccess } from '../app/.server/modules/admin.ts';
+import { businessQueue, businessReview, verifyBusiness, findAdminAccount, setAdminAccess, administrationOverview } from '../app/.server/modules/admin.ts';
 import { requireAdminPage } from '../app/.server/admin-access.ts';
 import { sessionCookie } from '../app/.server/modules/auth/auth.ts';
 import { handleApi } from '../app/.server/api.ts';
@@ -9,6 +9,17 @@ import { handleApi } from '../app/.server/api.ts';
 const actor = { id: 'a'.repeat(24), admin: true };
 const businessId = 'b'.repeat(24);
 const initialUri = process.env.MONGODB_URI;
+
+test('overview is restricted to super administrators and returns database counts and recent decisions', async () => {
+  const businesses = jest.spyOn(db.Business, 'countDocuments').mockResolvedValueOnce(4).mockResolvedValueOnce(9);
+  const users = jest.spyOn(db.User, 'countDocuments').mockResolvedValue(2);
+  const query = { sort() { return this; }, limit() { return this; }, populate() { return this; }, lean: async () => [] };
+  jest.spyOn(db.BusinessReview, 'find').mockReturnValue(query);
+  await expect(administrationOverview(actor)).rejects.toMatchObject({ status: 403 });
+  expect(businesses).not.toHaveBeenCalled();
+  await expect(administrationOverview({ ...actor, superAdmin: true })).resolves.toEqual({ pending: 4, verified: 9, administrators: 2, recent: [] });
+  expect(users).toHaveBeenCalledWith({ active: true, admin: true, superAdmin: { $ne: true } });
+});
 test('regular administrators cannot find accounts or grant roles', async () => {
   const read = jest.spyOn(db.User, 'findOne');
   const write = jest.spyOn(db.User, 'findOneAndUpdate');

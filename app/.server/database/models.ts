@@ -297,3 +297,20 @@ export const Category = make("Category", {
 const businessReviewSchema = new Schema({ business: ref('Business'), reviewer: ref('User'), verified: { type: Boolean, required: true }, reason: { type: String, maxlength: 2000, default: '' } }, options);
 businessReviewSchema.index({ business: 1, createdAt: -1 });
 export const BusinessReview = mongoose.models.BusinessReview ?? mongoose.model('BusinessReview', businessReviewSchema);
+
+const supportEventSchema = new Schema({
+  author: ref('User'), text: { type: String, required: true, maxlength: 4000 },
+  internal: { type: Boolean, default: false }, status: { type: String, enum: ['open', 'in_review', 'resolved', 'closed'] },
+  createdAt: { type: Date, default: Date.now },
+});
+const supportTicketSchema = new Schema({
+  channel: { type: String, enum: ['complaint', 'chat'], default: 'complaint' },
+  reporter: ref('User'), category: { type: String, required: true, enum: ['damaged_delivery', 'late_delivery', 'spoiled_goods', 'sick_livestock', 'booking', 'rental', 'other'] },
+  subject: { type: String, required: true, maxlength: 160 }, description: { type: String, required: true, maxlength: 4000 },
+  status: { type: String, enum: ['open', 'in_review', 'resolved', 'closed'], default: 'open' },
+  relatedKind: { type: String, enum: ['order', 'booking', 'reservation', 'delivery', 'transport'] }, relatedId: Schema.Types.ObjectId,
+  version: { type: Number, default: 0 }, history: { type: [supportEventSchema], default: [] },
+}, options);
+supportTicketSchema.index({ reporter: 1, updatedAt: -1 });
+supportTicketSchema.index({ status: 1, category: 1, updatedAt: -1 });
+export const SupportTicket = mongoose.models.SupportTicket ?? mongoose.model('SupportTicket', supportTicketSchema);

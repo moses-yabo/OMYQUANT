@@ -61,7 +61,13 @@ const server = createServer(async (req, res) => {
     res.end("Invalid request");
   }
 });
-const io = attachRealtime(server);
+const io = attachRealtime(server, { async authenticateSupport(cookie) {
+  const response = await handleRequest(new Request(new URL('/api/v1/users/me', process.env.APP_ORIGIN ?? 'http://localhost'), { headers: { Cookie: cookie } }));
+  if (!response.ok) throw new Error('Authentication required');
+  const { data } = await response.json() as { data?: { _id: string; admin?: boolean; superAdmin?: boolean } };
+  if (!data?._id) throw new Error('Authentication required');
+  return { id: String(data._id), admin: Boolean(data.admin || data.superAdmin) };
+} });
 server.listen(Number(process.env.PORT ?? 3000), () => {
   const address = server.address();
   if (address && typeof address !== "string")

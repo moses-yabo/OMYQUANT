@@ -10,6 +10,16 @@ export function requireAdminActor(actor: Actor) {
 export function requireSuperAdmin(actor: Actor) {
   if (!actor.superAdmin) throw new ApiError(403, 'Super administrator required');
 }
+export async function administrationOverview(actor: Actor) {
+  requireSuperAdmin(actor);
+  const [pending, verified, administrators, recent] = await Promise.all([
+    Business.countDocuments({ verified: { $ne: true } }),
+    Business.countDocuments({ verified: true }),
+    User.countDocuments({ active: true, admin: true, superAdmin: { $ne: true } }),
+    BusinessReview.find().sort({ createdAt: -1, _id: -1 }).limit(8).populate('business', 'name').populate('reviewer', 'name').lean(),
+  ]);
+  return { pending, verified, administrators, recent };
+}
 export async function findAdminAccount(actor: Actor, email: string) {
   requireSuperAdmin(actor);
   const normalized = z.email().parse(email.trim().toLowerCase());

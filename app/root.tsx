@@ -5,6 +5,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  redirect,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -18,6 +19,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { user: null, demo: demoEnabled() };
   const response = await api(request, "users/me");
   const payload = await result<{ id: string; name: string; admin?: boolean; superAdmin?: boolean }>(response);
+  const pathname = new URL(request.url).pathname;
+  if (response.ok && payload.data?.superAdmin && pathname !== '/admin' && !pathname.startsWith('/admin/')) throw redirect('/admin');
   return {
     user: response.ok ? (payload.data ?? null) : null,
     demo: demoEnabled(),

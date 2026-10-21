@@ -47,6 +47,8 @@ Money is integer South African cents; currency is ZAR. Dates are ISO timestamps.
 | `/businesses/:id/verification` | PATCH `{verified: boolean, reason?: string}`, platform admin only; transactional review audit |
 | `/admin/businesses` | GET paginated admin queue; `status=pending|verified|all`, `q`, `page`, `limit` |
 | `/admin/businesses/:id` | GET business and latest 50 review decisions, platform admin only |
+| `/support`, `/support/:id` | Own complaint queue/create/detail/reply; optional transaction links require ownership or business membership |
+| `/admin/support`, `/admin/support/:id` | Admin complaint queue/detail, status updates and public/private notes; see [support API](support.md) |
 | `/farming/farmers`, `/farming/products`, `/farming/livestock` | GET published directory/listings, POST creates, PATCH `/:id` updates within business |
 | `/farming/farmers/:businessId/dashboard` | GET seller listing counts, open orders and fulfilled order value |
 | `/farming/categories` | GET categories, POST by platform admin |

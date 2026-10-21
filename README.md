@@ -14,6 +14,8 @@ Google sign-in is available as an additional MongoDB-backed method using the exi
 
 Platform administrators can review businesses at `/admin/businesses`. Use `npm run admin:grant -- --email person@example.com` for an existing active account; see [admin setup, revocation and verification history](docs/admin.md).
 
+Customers and businesses can report delivery, farm goods, livestock, booking or rental problems through **Help and complaints**. Both admin roles handle cases through **Support complaints**, with public replies and private investigation notes. See [support workflow](docs/support.md).
+
 Verified providers can open **My business → Manage business** for farming/livestock listings and orders, trailer listings and rental management, or taxi vehicles/routes/departures and bookings. Tools follow business memberships and service types. See [provider access and verification rules](docs/business-tools.md).
 
 Customers can opt into browser notifications for successful orders, seat bookings and trailer reservation requests while the app is open. Existing in-page confirmations remain available. See [notification setup and current limits](docs/notifications.md); pickup/drop-off and background Web Push remain future work.

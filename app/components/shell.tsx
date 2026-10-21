@@ -1,5 +1,6 @@
 import {
   Link,
+  Form,
   NavLink,
   useLocation,
   useNavigation,
@@ -10,14 +11,22 @@ import {
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "./icon";
 import { sections } from "../lib/marketplace";
-import { NotificationSettings } from './notification-settings';
-import './admin-navigation.css';
+import { NotificationSettings } from "./notification-settings";
+import { SupportChat } from './support-chat';
+import { SupportActivityNotice } from './support-live-updates';
+import "./admin-navigation.css";
 export function Shell({ children }: { children: React.ReactNode }) {
   const [search] = useSearchParams();
   const current = search.get("section") ?? "all";
   const location = useLocation();
   const root = useRouteLoaderData<{
-    user: { id?: string; name: string; admin?: boolean; superAdmin?: boolean } | null;
+    user: {
+      _id?: string;
+      id?: string;
+      name: string;
+      admin?: boolean;
+      superAdmin?: boolean;
+    } | null;
     demo?: boolean;
   }>("root");
   const [connected, setConnected] = useState(false);
@@ -25,7 +34,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const refreshRef = useRef(revalidate);
   refreshRef.current = revalidate;
   useEffect(() => {
-    if (!root?.demo || !root.user) { setConnected(false); return; }
+    if (!root?.demo || !root.user) {
+      setConnected(false);
+      return;
+    }
     let cleanup: (() => void) | undefined;
     let stopped = false;
     import("../lib/local-bookings")
@@ -43,9 +55,77 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }, [root?.demo, root?.user?.id]);
   const navigation = useNavigation();
   const isSuperAdmin = !root?.demo && Boolean(root?.user?.superAdmin);
-  const isAdmin = !root?.demo && Boolean(root?.user?.admin || root?.user?.superAdmin);
-  const categoryActivity = current === 'products' || current === 'livestock' ? { label: 'My orders', to: '/account#orders' } : current === 'taxis' ? { label: 'My trips', to: '/account#bookings' } : current === 'trailers' ? { label: 'My rentals', to: '/account#reservations' } : null;
-  const primaryAction = location.pathname === '/' ? (categoryActivity ?? { label: 'List your business', to: '/business' }) : { label: 'Explore marketplace', to: '/' };
+  const isAdmin =
+    !root?.demo && Boolean(root?.user?.admin || root?.user?.superAdmin);
+  const categoryActivity =
+    current === "products" || current === "livestock"
+      ? { label: "My orders", to: "/account#orders" }
+      : current === "taxis"
+        ? { label: "My trips", to: "/account#bookings" }
+        : current === "trailers"
+          ? { label: "My rentals", to: "/account#reservations" }
+          : null;
+  const primaryAction =
+    location.pathname === "/"
+      ? (categoryActivity ?? { label: "List your business", to: "/business" })
+      : { label: "Explore marketplace", to: "/" };
+  if (isSuperAdmin || (isAdmin && location.pathname.startsWith('/admin')))
+    return (
+      <div className="app-shell super-admin-shell">
+        <aside className="sidebar">
+          <Link to={isSuperAdmin ? '/admin' : '/admin/businesses'} className="brand">
+            <span className="brand-mark">
+              <Icon name="leaf" size={24} />
+            </span>
+            OMYQUANT<span className="brand-dot">.</span>
+          </Link>
+          <div className="nav-label">{isSuperAdmin ? 'SUPER ADMINISTRATION' : 'ADMINISTRATION'}</div>
+          <nav aria-label="Administration workspace">
+            <NavLink className="nav-item" to="/admin/support"><Icon name="box" />Support complaints</NavLink>
+            {isSuperAdmin && <NavLink className="nav-item" to="/admin" end>
+              <Icon name="grid" />
+              Overview
+            </NavLink>}
+            <NavLink className="nav-item" to="/admin/businesses">
+              <Icon name="store" />
+              Verify businesses
+            </NavLink>
+            {isSuperAdmin && <NavLink className="nav-item" to="/admin/users">
+              <Icon name="user" />
+              Manage administrators
+            </NavLink>}
+          </nav>
+        </aside>
+        <div className="app-main">
+          <header className="topbar">
+            <span className="topbar-label">Platform oversight</span>
+            <div className="topbar-actions">
+              <span className="sign-in">
+                <Icon name="user" size={17} />
+                {root?.user?.name}
+              </span>
+              <Form method="post" action="/account">
+                <input type="hidden" name="intent" value="logout" />
+                <button className="button outline small">Sign out</button>
+              </Form>
+            </div>
+          </header>
+          {navigation.state !== "idle" && (
+            <div
+              className="navigation-progress"
+              role="progressbar"
+              aria-label="Loading page"
+            />
+          )}
+          {!location.pathname.startsWith('/admin/support') && <SupportActivityNotice />}
+          <main id="main-content">{children}</main>
+          <footer className="footer">
+            <span>© {new Date().getFullYear()} OMYQUANT</span>
+            <span>{isSuperAdmin ? 'Super administrator workspace' : 'Administrator workspace'}</span>
+          </footer>
+        </div>
+      </div>
+    );
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -60,9 +140,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {sections.map((s) => (
             <Link
               key={s.id}
-              className={`nav-item ${current === s.id && location.pathname === "/" && !search.has('saved') ? "selected" : ""}`}
-              to={`/?section=${s.id}${s.id === 'all' ? '' : '#listings'}`}
-              aria-current={current === s.id && location.pathname === '/' && !search.has('saved') ? 'page' : undefined}
+              className={`nav-item ${current === s.id && location.pathname === "/" && !search.has("saved") ? "selected" : ""}`}
+              to={`/?section=${s.id}${s.id === "all" ? "" : "#listings"}`}
+              aria-current={
+                current === s.id &&
+                location.pathname === "/" &&
+                !search.has("saved")
+                  ? "page"
+                  : undefined
+              }
             >
               <Icon name={s.icon} />
               {s.name}
@@ -81,7 +167,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Icon name="clock" />
             My activity
           </NavLink>
-          <Link className={`nav-item ${location.pathname === '/' && search.has('saved') ? 'selected' : ''}`} aria-current={location.pathname === '/' && search.has('saved') ? 'page' : undefined} to="/?saved=1#listings">
+          <Link
+            className={`nav-item ${location.pathname === "/" && search.has("saved") ? "selected" : ""}`}
+            aria-current={
+              location.pathname === "/" && search.has("saved")
+                ? "page"
+                : undefined
+            }
+            to="/?saved=1#listings"
+          >
             <Icon name="heart" />
             Saved listings
           </Link>
@@ -89,8 +183,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Icon name="store" />
             My business
           </NavLink>
-          {isAdmin && <NavLink className="nav-item" to="/admin/businesses"><Icon name="store" />Business verification</NavLink>}
-          {isSuperAdmin && <NavLink className="nav-item" to="/admin/users"><Icon name="store" />Manage administrators</NavLink>}
+          {isAdmin && (
+            <NavLink className="nav-item" to="/admin/businesses">
+              <Icon name="store" />
+              Business verification
+            </NavLink>
+          )}
+          {root?.user && <NavLink className="nav-item" to={isAdmin ? '/admin/support' : '/support'}><Icon name="box" />{isAdmin ? 'Support complaints' : 'Help and complaints'}</NavLink>}
+          {isSuperAdmin && (
+            <NavLink className="nav-item" to="/admin/users">
+              <Icon name="store" />
+              Manage administrators
+            </NavLink>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <div className="partner-card">
@@ -122,15 +227,29 @@ export function Shell({ children }: { children: React.ReactNode }) {
               {root?.user ? root.user.name.split(" ")[0] : "Sign in"}
             </Link>
             <Link className="button small" to={primaryAction.to}>
-              {primaryAction.label} <Icon name="arrow" size={14}/>
+              {primaryAction.label} <Icon name="arrow" size={14} />
             </Link>
           </div>
         </header>
-        {isAdmin && <nav className="admin-navigation" aria-label="Administration shortcuts">
-          <span className="admin-navigation-role">{isSuperAdmin ? 'Super administrator' : 'Administrator'}</span>
-          <NavLink className="button outline small" to="/admin/businesses">Verify businesses</NavLink>
-          {isSuperAdmin && <NavLink className="button outline small" to="/admin/users">Manage administrators</NavLink>}
-        </nav>}
+        {isAdmin && (
+          <nav
+            className="admin-navigation"
+            aria-label="Administration shortcuts"
+          >
+            <span className="admin-navigation-role">
+              {isSuperAdmin ? "Super administrator" : "Administrator"}
+            </span>
+            <NavLink className="button outline small" to="/admin/businesses">
+              Verify businesses
+            </NavLink>
+            <NavLink className="button outline small" to="/admin/support">Support complaints</NavLink>
+            {isSuperAdmin && (
+              <NavLink className="button outline small" to="/admin/users">
+                Manage administrators
+              </NavLink>
+            )}
+          </nav>
+        )}
         {navigation.state !== "idle" && (
           <div
             className="navigation-progress"
@@ -139,6 +258,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           />
         )}
         <main id="main-content">{children}</main>
+        {!root?.demo && !isAdmin && <SupportChat key={root?.user?.id ?? root?.user?._id ?? 'guest'} accountId={root?.user?.id ?? root?.user?._id} />}
         {root?.user && <NotificationSettings />}
         {root?.demo && (
           <p className="realtime-status" role="status">

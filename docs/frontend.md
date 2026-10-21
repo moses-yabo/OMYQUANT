@@ -1,5 +1,7 @@
 # OMYQUANT client
 
+Customers and business members can report and track complaints at `/support`; both admin roles review and reply at `/admin/support`. My activity transaction cards pre-fill references. See [support workflows](support.md).
+
 The client uses the existing React Router Framework Mode app. Run `npm run dev` and open the printed local URL. It shares a deployment and session cookie with the server resource routes; no separate client API origin is required.
 
 ## Screens and flows
