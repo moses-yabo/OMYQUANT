@@ -36,19 +36,26 @@ export function mongoConfiguration(env: MongoEnvironment = process.env) {
 }
 
 let connectionPromise: Promise<typeof mongoose> | null = null;
+let retryAfter = 0;
+let lastFailure: unknown;
+export function isDatabaseUnavailable(error: unknown) {
+  return (lastFailure !== undefined && error === lastFailure) || (error instanceof Error && ['MongooseServerSelectionError', 'MongoServerSelectionError', 'MongoNetworkError', 'MongoNetworkTimeoutError'].includes(error.name));
+}
 export async function connectToDatabase() {
-  if (mongoose.connection.readyState === 1) return mongoose;
+  if (mongoose.connection.readyState === 1) { lastFailure = undefined; retryAfter = 0; return mongoose; }
+  if (!connectionPromise && lastFailure !== undefined && Date.now() < retryAfter) throw lastFailure;
   if (!connectionPromise) {
     const { uri, options } = mongoConfiguration();
     connectionPromise = mongoose.connect(uri, options).catch(error => {
-      connectionPromise = null;
+      lastFailure = error;
+      retryAfter = Date.now() + 10000;
       // Raw driver errors can contain connection details.
       console.error('MongoDB connection failed', {
         name: error instanceof Error ? error.name : 'UnknownError',
         code: typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined,
       });
       throw error;
-    });
+    }).finally(() => { connectionPromise = null; });
   }
   return connectionPromise;
 }

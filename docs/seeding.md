@@ -1,5 +1,7 @@
 # Populate MongoDB with the sample catalog
 
+Use an explicit database when the deployment differs from local settings: `npm run seed:preview -- --database test`, followed by `npm run seed -- --database test` when approved. The preview does not connect; the write command prints its actual target database. Copying sample fixtures does not migrate accounts or orders, switch Render's database, or approve providers. After seeding, review the clearly labelled sample businesses under **Verify businesses** before deciding to expose any of them in the public marketplace. Pending providers remain hidden by the current verification rules.
+
 Run locally with Node.js 24 and installed development dependencies. `npm run seed:preview` shows the planned record counts without connecting. `npm run seed` loads the same MongoDB `.env` settings as Vite and inserts the existing catalog into that database. Keep credentials out of logs/chat and check your configured database before running.
 
 The seed creates seven Product, five Livestock, one Trailer and one Departure record from `app/lib/marketplace.ts`, plus three active/unverified sample businesses, their memberships, a farmer profile, a vehicle and a route. Listings retain their images and integer-ZAR-cent prices. The trailer has illustrative dimensions/payload and the vehicle has a clearly artificial registration. Taxi departure time is initially 09:00 South African time seven days ahead. These are test providers and inventory, not real offers or journeys.

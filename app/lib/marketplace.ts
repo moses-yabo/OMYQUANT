@@ -3,7 +3,7 @@ export const sections = [
   { id: 'livestock', name: 'Livestock', icon: 'sun' }, { id: 'taxis', name: 'Taxi trips', icon: 'bus' },
   { id: 'trailers', name: 'Trailer rentals', icon: 'trailer' },
 ] as const;
-export type Listing = { id: string; kind: string; name: string; description: string; price: number; unit: string; location: string; province: string; image: string; tag: string; quantity: number };
+export type Listing = { id: string; kind: string; name: string; description: string; price: number; unit: string; location: string; province: string; image: string; tag: string; quantity: number; hourlyPrice?: number; monthlyPrice?: number };
 export const zar = (cents: number) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
 const photo = (id: string) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=85`;
 export const samples: Listing[] = [

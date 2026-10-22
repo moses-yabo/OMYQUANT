@@ -1,8 +1,9 @@
+import { approvedBusinessFilter } from '../lib/business-registry';
 import { Readable } from 'node:stream';
 import mongoose from 'mongoose';
 import type { Route } from './+types/image';
 import { authenticate, sessionToken } from '../.server/modules/auth/auth';
-import { manage } from '../.server/shared/access';
+import { manage, manageImages } from '../.server/shared/access';
 import { mutationOrigin } from '../.server/frontend';
 import { ApiError, id } from '../.server/shared/http';
 import { boundedBody, imageBucket, ImageError, storeImage } from '../.server/database/images';
@@ -25,7 +26,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     const actor = await authenticate(request);
     const business = new URL(request.url).searchParams.get('business');
     if (!id.safeParse(business).success) throw new ApiError(400, 'A valid business ID is required.');
-    await manage(actor, business);
+    await manageImages(actor, business!);
     const image = await storeImage(await boundedBody(request), business!, request.headers.get('Content-Type') ?? '');
     return Response.json({ data: image }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) { return failure(error); }
@@ -40,7 +41,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     const path = `/media/images/${params.id}`;
     const images = { $in: [path, new URL(path, request.url).href] };
     const business = file.metadata.business;
-    const active = await Business.exists({ _id: business, active: true });
+    const active = await Business.exists({ _id: business, ...approvedBusinessFilter() });
     const visible = active && (await Promise.all([
       Product.exists({ business, images, status: 'published' }),
       Livestock.exists({ business, images, status: 'published' }),

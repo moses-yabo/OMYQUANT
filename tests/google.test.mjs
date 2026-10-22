@@ -266,6 +266,14 @@ test('provider failures show only fixed messages and clear the transaction cooki
   expect([...response.headers].join(' ')).not.toContain('secret-access-token');
   expect(response.headers.get('Set-Cookie')).toMatch(/Max-Age=0/);
 });
+
+test('database outages have a specific safe Google sign-in message without exposing connection details', async () => {
+  const failure = Object.assign(new Error('secret-mongodb-uri-and-password'), { name: 'MongooseServerSelectionError' });
+  const response = await googleFailure(failure);
+  expect(response.headers.get('Location')).toBe('/login?google=database_unavailable');
+  expect(response.headers.get('Set-Cookie')).toMatch(/Max-Age=0/);
+  expect([...response.headers].join(' ')).not.toContain('secret-mongodb');
+});
 test('configuration remains server-only and Google cannot run in browser demo mode', () => {
   const request = new Request(config.redirectUri);
   expect(googleConfig(request)).toEqual(config);

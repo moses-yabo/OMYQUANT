@@ -30,6 +30,37 @@ afterEach(() => {
 });
 async function request(path) { return new Request(`https://example.test${path}`, { headers: { Cookie: await sessionCookie.serialize('1'.repeat(64)) } }); }
 
+test('customer business registration is optional and includes distinct types and private verification uploads', async () => {
+  user.admin = false; user.superAdmin = false;
+  jest.spyOn(db.Membership, 'distinct').mockResolvedValue([]);
+  jest.spyOn(db.Business, 'find').mockReturnValue({ sort() { return this; }, skip() { return this; }, limit() { return this; }, lean: async () => [] });
+  const response = await handle(await request('/business'));
+  expect(response.status).toBe(200);
+  const html = await response.text();
+  for (const text of ['Business registration is optional', 'LIVESTOCK_FARMER', 'AGRICULTURAL_SELLER', 'TRAILER_RENTAL', 'TAXI_OPERATOR', 'LOGISTICS_PROVIDER', 'verificationDocuments', 'Return to personal marketplace']) expect(html).toContain(text);
+  expect(html).not.toContain('Manage administrators');
+});
+
+test('business dashboards include a membership-scoped selector and return to the personal marketplace', async () => {
+  user.admin = false; user.superAdmin = false;
+  const business = 'b'.repeat(24);
+  jest.spyOn(db.Business, 'findOne').mockResolvedValue({ _id: business, name: 'Approved farm', active: true, verified: true, types: ['farm'] });
+  jest.spyOn(db.Membership, 'exists').mockResolvedValue({});
+  jest.spyOn(db.Membership, 'findOne').mockResolvedValue({ role: 'staff', permissions: ['farm:read'] });
+  jest.spyOn(db.Membership, 'distinct').mockResolvedValue([business]);
+  jest.spyOn(db.Business, 'find').mockReturnValue({ select() { return this; }, lean: async () => [{ _id: business, name: 'Approved farm' }] });
+  jest.spyOn(db.Product, 'find').mockReturnValue({ select() { return this; }, sort() { return this; }, skip() { return this; }, limit() { return this; }, lean: async () => [] });
+  jest.spyOn(db.Product, 'countDocuments').mockResolvedValue(0);
+  const response = await handle(await request(`/business/${business}/tools`));
+  expect(response.status).toBe(200);
+  const html = await response.text();
+  expect(html).toContain('Switch business');
+  expect(html).toContain('Personal marketplace');
+  expect(html).toContain('Customer enquiries');
+  expect(html).not.toContain('Add product');
+  expect(html).not.toContain('Scheduled departures');
+});
+
 test('super administrators receive administration content without customer promotions', async () => {
   const response = await handle(await request('/admin'));
   expect(response.status).toBe(200);
@@ -45,6 +76,20 @@ test('super administrators opening the marketplace land in their workspace', asy
   const response = await handle(await request('/'));
   expect(response.status).toBe(302);
   expect(response.headers.get('Location')).toBe('/admin');
+});
+
+test('root revalidates cached role data on client navigation', () => {
+  expect(build.routes.root.module.shouldRevalidate()).toBe(true);
+});
+
+test('account lookup failures do not silently render the customer marketplace', async () => {
+  jest.spyOn(db.Session, 'findOne').mockRejectedValue(Object.assign(new Error('connection-details-must-not-leak'), { name: 'MongooseServerSelectionError' }));
+  const response = await handle(await request('/'));
+  expect(response.status).toBe(503);
+  const html = await response.text();
+  expect(html).toContain('Unable to verify your account');
+  expect(html).not.toContain('Explore the marketplace');
+  expect(html).not.toContain('connection-details-must-not-leak');
 });
 test('regular administrators retain their business verification destination', async () => {
   user.superAdmin = false;

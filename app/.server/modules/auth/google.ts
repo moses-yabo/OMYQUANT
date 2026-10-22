@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { createCookie, redirect } from "react-router";
-import { connect } from "../../database/connect";
+import { connect, isDatabaseUnavailable } from "../../database/connect";
 import {
   AuthIdentity,
   LoginAttempt,
@@ -167,7 +167,9 @@ export async function completeGoogle(request: Request) {
 export async function googleFailure(error: unknown) {
   // Never reflect provider error text, tokens, callback query strings or secrets.
   const reason =
-    error instanceof GoogleAccountConflict
+    isDatabaseUnavailable(error)
+      ? 'database_unavailable'
+      : error instanceof GoogleAccountConflict
       ? "account_exists"
       : error instanceof ApiError && error.status === 503
         ? "unavailable"

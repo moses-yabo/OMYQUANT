@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { businessRegistry, businessPermissions, verificationStatuses } from '../../lib/business-registry';
 
 const ref = (name: string, required = true) => ({
   type: Schema.Types.ObjectId,
@@ -74,6 +75,12 @@ export const LoginAttempt =
   mongoose.models.LoginAttempt ??
   mongoose.model("LoginAttempt", loginAttemptSchema);
 export const Business = make("Business", {
+  owner: ref('User', false),
+  kind: { type: String, enum: Object.keys(businessRegistry) },
+  verificationStatus: { type: String, enum: verificationStatuses },
+  verification: { reviewer: ref('User', false), reviewedAt: Date, reason: String },
+  verificationDocuments: [{ file: Schema.Types.ObjectId, name: String }],
+  logisticsProfile: { serviceAreas: [String], basePrice: Number, perKmPrice: Number, available: Boolean },
   name: String,
   description: String,
   types: [String],
@@ -82,11 +89,14 @@ export const Business = make("Business", {
   verified: { type: Boolean, default: false },
   active: { type: Boolean, default: true },
 });
+Business.schema.index({ owner: 1, createdAt: -1 });
+Business.schema.index({ verificationStatus: 1, createdAt: -1 });
 const membershipSchema = new Schema(
   {
     business: ref("Business"),
     user: ref("User"),
     role: { type: String, enum: ["owner", "manager", "staff"], required: true },
+    permissions: { type: [String], enum: businessPermissions, default: [] },
   },
   options,
 );
@@ -127,6 +137,13 @@ export const Livestock = make("Livestock", {
   sex: String,
   healthDocuments: [String],
 });
+export const BusinessEnquiry = make('BusinessEnquiry', {
+  customer: ref('User'), business: ref('Business'), listing: Schema.Types.ObjectId,
+  kind: { type: String, enum: ['product', 'livestock'] }, question: { type: String, maxlength: 4000 },
+  answer: { type: String, maxlength: 4000 }, answeredBy: ref('User', false), answeredAt: Date,
+});
+BusinessEnquiry.schema.index({ business: 1, createdAt: -1 });
+BusinessEnquiry.schema.index({ customer: 1, createdAt: -1 });
 export const Order = make("Order", {
   customer: ref("User"),
   business: ref("Business"),
@@ -154,6 +171,7 @@ export const Driver = make("Driver", {
   business: ref("Business"),
   user: ref("User"),
   licenceDocuments: [String],
+  active: { type: Boolean, default: true },
 });
 export const Vehicle = make("Vehicle", {
   business: ref("Business"),
@@ -162,6 +180,8 @@ export const Vehicle = make("Vehicle", {
   scheduleVersion: { type: Number, default: 0 },
   documents: [String],
   driver: ref("Driver", false),
+  payloadKg: Number,
+  active: { type: Boolean, default: true },
 });
 export const Route = make("Route", {
   business: ref("Business"),
@@ -206,6 +226,8 @@ export const Trailer = make("Trailer", {
   payloadKg: Number,
   grossMassKg: Number,
   dailyPrice: amount,
+  hourlyPrice: { type: Number, min: 0 },
+  monthlyPrice: { type: Number, min: 0 },
   location: place,
   images: [String],
   documents: [String],
@@ -220,6 +242,8 @@ const reservationSchema = new Schema(
     start: Date,
     end: Date,
     total: amount,
+    rateUnit: { type: String, enum: ['hour', 'day', 'month'], default: 'day' },
+    unitPrice: Number,
     status: {
       type: String,
       enum: [
@@ -259,6 +283,8 @@ export const Delivery = make("Delivery", {
   dimensions: { length: Number, width: Number, height: Number },
   requirements: [String],
   business: ref("Business", false),
+  vehicle: ref('Vehicle', false),
+  driver: ref('Driver', false),
   status: {
     type: String,
     enum: ["requested", "assigned", "collected", "delivered", "cancelled"],
@@ -294,9 +320,10 @@ export const Category = make("Category", {
   description: String,
   active: { type: Boolean, default: true },
 });
-const businessReviewSchema = new Schema({ business: ref('Business'), reviewer: ref('User'), verified: { type: Boolean, required: true }, reason: { type: String, maxlength: 2000, default: '' } }, options);
+const businessReviewSchema = new Schema({ business: ref('Business'), reviewer: ref('User'), verified: { type: Boolean, required: true }, previousStatus: { type: String, enum: verificationStatuses }, status: { type: String, enum: verificationStatuses }, reason: { type: String, maxlength: 2000, default: '' } }, options);
 businessReviewSchema.index({ business: 1, createdAt: -1 });
 export const BusinessReview = mongoose.models.BusinessReview ?? mongoose.model('BusinessReview', businessReviewSchema);
+export const AdminAccessReview = make('AdminAccessReview', { user: ref('User'), reviewer: ref('User'), admin: Boolean });
 
 const supportEventSchema = new Schema({
   author: ref('User'), text: { type: String, required: true, maxlength: 4000 },

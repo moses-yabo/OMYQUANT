@@ -6,6 +6,8 @@ This is a full-stack React Router Framework Mode modular monolith. Server resour
 
 See [backend setup, endpoints and implementation limits](docs/backend.md). Copy `.env.example` and configure MongoDB Atlas (or a local replica set) before exercising database-backed endpoints. The commands below continue to run the React Router frontend and backend together.
 
+For connection failures, run `npm run mongo:check` for read-only, credential-safe diagnostics. See [MongoDB troubleshooting](docs/mongodb-troubleshooting.md).
+
 The [marketplace frontend](docs/frontend.md) includes browsing, saved listings, sign-in, customer requests/activity and business onboarding. Without MongoDB, sample bookings persist in browser **localStorage**, with **Socket.IO** refresh notifications between connected tabs. See [local bookings and realtime setup](docs/local-bookings.md).
 
 Demo registration, login, **jose JWT sessions** and bookings all persist in browser **localStorage**. See [browser authentication](docs/local-auth.md). No SQLite account database is used. Demo JWTs are browser-only; server-verified authentication requires the real backend.
@@ -148,3 +150,5 @@ OMYQUANT uses plain CSS. Browser normalization is in `app/styles/reset.css`; mar
 ---
 
 Built with ❤️ using React Router.
+
+See [optional multi-business registration, lifecycle and scoped permissions](docs/multi-business.md) for the expanded business workflow and compatibility rules.

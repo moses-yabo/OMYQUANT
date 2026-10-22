@@ -37,7 +37,7 @@ test('active operator seat booking uses the inventory transaction and price snap
   expect(decrement).toHaveBeenCalledWith(expect.objectContaining({
     _id: input.departure, status: 'scheduled', remaining: { $gte: 2 }, startsAt: { $gt: expect.any(Date) },
   }), { $inc: { remaining: -2 } }, { new: true, session });
-  expect(business).toHaveBeenCalledWith({ _id: 'c'.repeat(24), active: true, verified: true, types: 'taxi_operator' });
+  expect(business).toHaveBeenCalledWith({ _id: 'c'.repeat(24), active: true, verified: true, $or: [{ verificationStatus: 'APPROVED' }, { verificationStatus: { $exists: false } }], types: 'taxi_operator' });
   expect(lookup).toHaveBeenCalledWith(session);
   expect(create).toHaveBeenCalledWith([expect.objectContaining({
     customer: actor.id, business: 'c'.repeat(24), departure: input.departure, seats: 2, unitPrice: 45000,

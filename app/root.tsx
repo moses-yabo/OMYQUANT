@@ -12,12 +12,14 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { api, result } from "./.server/frontend";
 import { demoEnabled } from "./.server/demo-mode";
+import { sessionToken } from './.server/modules/auth/auth';
 
 export async function loader({ request }: Route.LoaderArgs) {
   if (demoEnabled()) return { user: null, demo: true };
-  if (!request.headers.get("Cookie"))
+  if (!await sessionToken(request))
     return { user: null, demo: demoEnabled() };
   const response = await api(request, "users/me");
+  if (!response.ok && response.status !== 401) throw new Response('Unable to verify your account. Please try again shortly.', { status: response.status, statusText: 'Unable to verify your account. Please try again shortly.' });
   const payload = await result<{ id: string; name: string; admin?: boolean; superAdmin?: boolean }>(response);
   const pathname = new URL(request.url).pathname;
   if (response.ok && payload.data?.superAdmin && pathname !== '/admin' && !pathname.startsWith('/admin/')) throw redirect('/admin');
@@ -33,6 +35,9 @@ export async function clientLoader({ serverLoader }: Route.ClientLoaderArgs) {
   catch { return { ...loaded, user: null }; }
 }
 clientLoader.hydrate = true as const;
+// Root role data must not remain cached across client-side navigation after a
+// grant/revocation. Server loaders and protected APIs remain authoritative.
+export function shouldRevalidate() { return true; }
 export function headers() {
   return { "Cache-Control": "no-store" };
 }

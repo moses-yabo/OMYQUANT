@@ -1,4 +1,4 @@
-import { data, Form, Link, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect, useNavigation, useNavigate } from "react-router";
 import type { Route } from "./+types/business-tools";
 import { Shell } from "../components/shell";
 import { api, result, mutationOrigin } from "../.server/frontend";
@@ -74,8 +74,20 @@ type RecordItem = {
   customer?: string;
   trailer?: string;
   departure?: string;
+  user?: string;
+  driver?: string;
+  hourlyPrice?: number;
+  monthlyPrice?: number;
+  question?: string;
+  answer?: string;
+  goodsType?: string;
+  weightKg?: number;
+  pickup?: { province?: string };
+  dropoff?: { province?: string };
 };
 type ToolsData = {
+  businesses: { _id: string; name: string }[];
+  writable: boolean;
   business: { _id: string; name: string };
   available: (keyof typeof businessToolLabels)[];
   tool: keyof typeof businessToolLabels;
@@ -85,6 +97,7 @@ type ToolsData = {
   limit: number;
   vehicles: { _id: string; registration: string }[];
   routes: { _id: string; name: string }[];
+  drivers: { _id: string; user: string }[];
 };
 export async function action({ request, params }: Route.ActionArgs) {
   mutationOrigin(request);
@@ -105,10 +118,24 @@ export async function action({ request, params }: Route.ActionArgs) {
     let method = "POST";
     let payload: Record<string, unknown> = { business: params.id };
     const location = { address: get("address"), province: get("province") };
-    if (get("intent") === "status") {
+    if (get('intent') === 'quote') {
+      if (tool !== 'deliveryRequests') throw new ApiError(400, 'Invalid quote request');
+      path = await toolMutation(actor, params.id!, tool, get('record')); payload = { business: params.id, price: Math.round(num('price') * 100), capabilities: [get('goodsType')] };
+    } else if (get('intent') === 'reply') {
+      path = await toolMutation(actor, params.id!, tool, get('record')); method = 'PATCH'; payload = { answer: get('answer') };
+    } else if (get('intent') === 'edit') {
+      path = await toolMutation(actor, params.id!, tool, get('record')); method = 'PATCH'; payload = {};
+      if (['products', 'livestock'].includes(tool)) payload = { name: get('name'), price: Math.round(num('price') * 100), quantity: num('quantity') };
+      else if (tool === 'trailers') payload = { name: get('name'), dailyPrice: Math.round(num('price') * 100), ...(get('hourlyPrice') ? { hourlyPrice: Math.round(num('hourlyPrice') * 100) } : {}), ...(get('monthlyPrice') ? { monthlyPrice: Math.round(num('monthlyPrice') * 100) } : {}) };
+      else if (['vehicles', 'deliveryVehicles'].includes(tool)) payload = { active: get('active') === 'true', ...(get('driver') ? { driver: get('driver') } : {}) };
+      else if (['drivers', 'deliveryPersonnel'].includes(tool)) payload = { active: get('active') === 'true' };
+      else throw new ApiError(400, 'This record cannot be edited here');
+    } else if (get('intent') === 'assign') {
+      path = `${await toolMutation(actor, params.id!, tool, get('record'))}/assignment`; method = 'PATCH'; payload = { vehicle: get('vehicle'), driver: get('driver') };
+    } else if (get("intent") === "status") {
       path = await toolMutation(actor, params.id!, tool, get("record"));
       method = "PATCH";
-      if (["orders", "departures"].includes(tool)) path += "/status";
+      if (["orders", "departures", 'deliveries'].includes(tool)) path += "/status";
       if (
         [
           "orders",
@@ -116,12 +143,14 @@ export async function action({ request, params }: Route.ActionArgs) {
           "reservations",
           "products",
           "livestock",
+          'deliveries',
         ].includes(tool)
       )
         payload = { status: get("status") };
       else if (tool === "trailers")
         payload = { active: get("status") === "active" };
       else throw new ApiError(400, "Unsupported status action");
+      if (tool === 'deliveries' && get('proof')) payload.proof = get('proof');
     } else if (get("intent") === "create") {
       if (["products", "livestock", "trailers"].includes(tool)) {
         const file = form.get("imageFile");
@@ -166,16 +195,20 @@ export async function action({ request, params }: Route.ActionArgs) {
           },
           payloadKg: num("payloadKg"),
           dailyPrice: Math.round(num("price") * 100),
+          ...(get('hourlyPrice') ? { hourlyPrice: Math.round(num('hourlyPrice') * 100) } : {}),
+          ...(get('monthlyPrice') ? { monthlyPrice: Math.round(num('monthlyPrice') * 100) } : {}),
           documents: [],
           active: true,
         };
-      else if (tool === "vehicles")
+      else if (tool === "vehicles" || tool === 'deliveryVehicles')
         payload = {
           ...payload,
           registration: get("registration"),
-          capacity: num("capacity"),
+          ...(tool === 'vehicles' ? { capacity: num('capacity') } : { payloadKg: num('payloadKg') }),
+          ...(get('driver') ? { driver: get('driver') } : {}),
           documents: [],
         };
+      else if (tool === 'drivers' || tool === 'deliveryPersonnel') payload = { ...payload, user: get('user'), licenceDocuments: [] };
       else if (tool === "routes")
         payload = {
           ...payload,
@@ -300,9 +333,10 @@ export default function BusinessTools({
   actionData,
 }: Route.ComponentProps) {
   const pending = useNavigation().state !== "idle";
+  const navigate = useNavigate();
   const tool = loaded.tool;
   const listing = ["products", "livestock", "trailers"].includes(tool);
-  const create = listing || ["vehicles", "routes", "departures"].includes(tool);
+  const create = loaded.writable && (listing || ['vehicles', 'routes', 'departures', 'drivers', 'deliveryVehicles', 'deliveryPersonnel'].includes(tool));
   const pageLink = (page: number) =>
     `?${new URLSearchParams({ tool, page: String(page) })}`;
   return (
@@ -312,6 +346,9 @@ export default function BusinessTools({
           Back to My business
         </Link>
         <h1>{loaded.business.name}</h1>
+        <label>Switch business<select value={loaded.business._id} onChange={event => navigate(`/business/${event.target.value}/tools`)}>{loaded.businesses.map(business => <option key={business._id} value={business._id}>{business.name}</option>)}</select></label>
+        <Link className="button outline small" to="/">Personal marketplace</Link>{' '}
+        <Link className="button outline small" to={`/business/${loaded.business._id}/profile`}>Business profile and team</Link>
         <p className="muted">
           Verified business tools. Access follows your membership and the
           services this business offers.
@@ -353,7 +390,7 @@ export default function BusinessTools({
           )}
           {!loaded.records.length && <p className="muted">No records yet.</p>}
           {loaded.records.map((record) => {
-            const transitions =
+            const transitions = tool === 'deliveries' ? ({ assigned: ['collected'], collected: ['delivered'] } as Record<string, string[]>)[record.status ?? ''] ?? [] :
               tool === "orders"
                 ? (orderTransitions[record.status ?? ""] ?? [])
                 : tool === "reservations"
@@ -382,6 +419,15 @@ export default function BusinessTools({
                         ? "Active"
                         : "Inactive")}
                 </p>
+                {record.user && <p>Assigned user: {record.user}</p>}
+                {tool === 'deliveryRequests' && <><p>{record.pickup?.province} → {record.dropoff?.province}</p><p>{record.goodsType} · {record.weightKg} kg</p>{loaded.writable && <Form method="post"><input type="hidden" name="tool" value={tool} /><input type="hidden" name="intent" value="quote" /><input type="hidden" name="record" value={record._id} /><input type="hidden" name="goodsType" value={record.goodsType} /><Field name="price" label="Delivery quote (R)" type="number" min={0} step="0.01" /><button className="button small" disabled={pending}>Offer quote</button></Form>}</>}
+                {tool === 'enquiries' && <><p>{record.question}</p><p>{record.answer || 'No reply yet.'}</p>{loaded.writable && <Form method="post"><input type="hidden" name="tool" value={tool} /><input type="hidden" name="intent" value="reply" /><input type="hidden" name="record" value={record._id} /><label>Reply to customer<textarea name="answer" maxLength={4000} required defaultValue={record.answer} /></label><button className="button small" disabled={pending}>Send reply</button></Form>}</>}
+                {loaded.writable && (listing || ['vehicles', 'deliveryVehicles', 'drivers', 'deliveryPersonnel'].includes(tool)) && <details><summary>Edit details</summary><Form method="post">
+                  <input type="hidden" name="intent" value="edit" /><input type="hidden" name="record" value={record._id} /><input type="hidden" name="tool" value={tool} />
+                  {listing ? <><label>Name<input name="name" defaultValue={record.name} required /></label><label>{tool === 'trailers' ? 'Daily price (R)' : 'Price (R)'}<input name="price" type="number" min="0" step="0.01" defaultValue={(record.dailyPrice ?? record.price ?? 0) / 100} required /></label>{tool !== 'trailers' ? <label>Quantity<input name="quantity" type="number" min="0" defaultValue={record.quantity} required /></label> : <><label>Hourly price (R, optional)<input name="hourlyPrice" type="number" min="0" step="0.01" defaultValue={record.hourlyPrice === undefined ? '' : record.hourlyPrice / 100} /></label><label>Monthly price (R, optional)<input name="monthlyPrice" type="number" min="0" step="0.01" defaultValue={record.monthlyPrice === undefined ? '' : record.monthlyPrice / 100} /></label></>}</> : <><label>Availability<select name="active" defaultValue={String(record.active !== false)}><option value="true">Available</option><option value="false">Unavailable</option></select></label>{['vehicles', 'deliveryVehicles'].includes(tool) && <label>Assign driver<select name="driver" defaultValue={record.driver ?? ''}><option value="">Keep current assignment</option>{loaded.drivers.map(driver => <option key={driver._id} value={driver._id}>{driver.user}</option>)}</select></label>}</>}
+                  <button className="button small" disabled={pending}>Save details</button>
+                </Form></details>}
+                {loaded.writable && tool === 'deliveries' && record.status === 'assigned' && <Form method="post"><input type="hidden" name="intent" value="assign" /><input type="hidden" name="tool" value={tool} /><input type="hidden" name="record" value={record._id} /><label>Vehicle<select name="vehicle" required>{loaded.vehicles.map(vehicle => <option key={vehicle._id} value={vehicle._id}>{vehicle.registration}</option>)}</select></label><label>Delivery person<select name="driver" required>{loaded.drivers.map(driver => <option key={driver._id} value={driver._id}>{driver.user}</option>)}</select></label><button className="button small" disabled={pending}>Assign delivery</button></Form>}
                 {record.items?.map((item, index) => (
                   <p key={index}>
                     {item.quantity} × {item.name}
@@ -454,7 +500,7 @@ export default function BusinessTools({
                     Report a problem
                   </Link>
                 )}
-                {transitions.length > 0 && (
+                {loaded.writable && transitions.length > 0 && (
                   <Form method="post">
                     <input type="hidden" name="tool" value={tool} />
                     <input type="hidden" name="record" value={record._id} />
@@ -469,6 +515,7 @@ export default function BusinessTools({
                         ))}
                       </select>
                     </label>
+                    {tool === 'deliveries' && record.status === 'collected' && <Field name="proof" label="Proof of delivery URL" type="url" />}
                     <button className="button small" disabled={pending}>
                       Update status
                     </button>
@@ -518,6 +565,9 @@ export default function BusinessTools({
             <input type="hidden" name="tool" value={tool} />
             <input type="hidden" name="intent" value="create" />
             <div className="form-grid">
+              {['drivers', 'deliveryPersonnel'].includes(tool) && <Field name="user" label="Existing driver account ID" />}
+              {tool === 'deliveryVehicles' && <><Field name="registration" label="Vehicle registration" /><Field name="payloadKg" label="Payload (kg)" type="number" min={1} step="any" /></>}
+              {tool === 'trailers' && <><label>Hourly price (R, optional)<input name="hourlyPrice" type="number" min="0" step="0.01" /></label><label>Monthly price (R, optional)<input name="monthlyPrice" type="number" min="0" step="0.01" /></label></>}
               {(listing || tool === "routes") && (
                 <Field name="name" label="Name" />
               )}

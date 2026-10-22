@@ -1,5 +1,7 @@
 # Google sign-in
 
+If sign-in fails while MongoDB is unreachable, the login page now reports the database outage explicitly rather than calling it a cancelled/expired Google attempt. Run `npm run mongo:check` for a read-only connection test and restore connectivity before starting a fresh Google sign-in. OAuth transactions, account resolution and session creation all require MongoDB; a working Google callback configuration cannot bypass that requirement. The temporary Google transaction cookie is still cleared on failure, and token/callback verification remains enforced.
+
 Google sign-in is an additional method for the existing MongoDB user/session system. The repository uses React Router **8** Framework Mode, retaining its loaders/actions/resource routes; no downgrade to 7 was made. Email/password registration, scrypt hashes, existing opaque-cookie sessions, roles and logout remain in place. Browser-only demo authentication is separate and unchanged.
 
 ## Configuration and Google Cloud setup

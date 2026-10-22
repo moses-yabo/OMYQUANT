@@ -22,8 +22,9 @@ export async function action({ request }: Route.ActionArgs) {
     path = "rentals/reservations";
     payload = {
       trailer: id,
-      start: `${form.get("start")}T08:00:00+02:00`,
-      end: `${form.get("end")}T08:00:00+02:00`,
+      rateUnit: String(form.get('rateUnit') ?? 'day'),
+      start: form.get('rateUnit') === 'hour' ? `${form.get('start')}:00+02:00` : `${form.get("start")}T08:00:00+02:00`,
+      end: form.get('rateUnit') === 'hour' ? `${form.get('end')}:00+02:00` : `${form.get("end")}T08:00:00+02:00`,
     };
   } else if (kind === "products" || kind === "livestock") {
     path = "farming/orders";

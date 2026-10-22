@@ -134,6 +134,7 @@ export default function Account({
           Keep track of your orders, journeys, and reservations.
         </p>
         {!loaderData.demo && !loaderData.preview && <Link className="button outline small" to="/support">Help and complaints</Link>}
+        {!loaderData.demo && !loaderData.preview && <Link className="button outline small" to="/enquiries">My seller enquiries</Link>}
         {loaderData.demo && <p className="notice">Browser demo activity · Bookings are stored in localStorage on this browser only. Trailer controls simulate a rental business. No real supplier or payment is involved.</p>}
         {loaderData.preview ? (
           <div className="empty-state">
@@ -193,6 +194,7 @@ export default function Account({
                       <span className="status-pill">
                         {item.status.replaceAll("_", " ")}
                       </span>
+                      {!loaderData.demo && group.kind === 'deliveries' && <Link className="text-button" to={`/deliveries/${item._id}`}>View delivery quotes</Link>}
                       {!loaderData.demo && <Link className="text-button" to={`/support?${new URLSearchParams({ kind: group.kind === 'orders' ? 'order' : group.kind === 'bookings' ? 'booking' : group.kind === 'reservations' ? 'reservation' : group.kind === 'deliveries' ? 'delivery' : 'transport', reference: item._id })}`}>Report a problem</Link>}
                       {item.start && <p className="muted">Collection: {new Date(item.start).toLocaleDateString('en-ZA', { timeZone: 'Africa/Johannesburg' })}</p>}
                       {group.kind === 'bookings' && 'startsAt' in item && item.startsAt && <p className="muted">Departure: {new Date(item.startsAt).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })} (South African time)</p>}

@@ -181,7 +181,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </Link>
           <NavLink className="nav-item" to="/business">
             <Icon name="store" />
-            My business
+            My businesses
           </NavLink>
           {isAdmin && (
             <NavLink className="nav-item" to="/admin/businesses">

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "mongo:check": "node scripts/check-mongo.ts",
     "admin:grant": "node scripts/admin.ts",
     "admin:revoke": "node scripts/admin.ts --revoke",
     "images:migrate-samples": "node scripts/migrate-sample-images.ts",

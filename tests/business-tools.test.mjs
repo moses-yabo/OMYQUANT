@@ -13,6 +13,9 @@ const business = 'b'.repeat(24);
 function company({ verified = true, types = ['farm'], member = true } = {}) {
   jest.spyOn(db.Business, 'findOne').mockResolvedValue({ _id: business, active: true, verified, types });
   jest.spyOn(db.Membership, 'exists').mockResolvedValue(member ? { _id: 'membership' } : null);
+  jest.spyOn(db.Membership, 'findOne').mockResolvedValue(member ? { role: 'owner', permissions: [] } : null);
+  jest.spyOn(db.Membership, 'distinct').mockResolvedValue([business]);
+  jest.spyOn(db.Business, 'find').mockReturnValue({ select: () => ({ lean: async () => [{ _id: business, name: 'Test business' }] }) });
 }
 test('pending owners can inspect their business but cannot use operational tools', async () => {
   company({ verified: false });
@@ -40,10 +43,10 @@ test('verified business operations are scoped to both business and record', asyn
 });
 test('multi-service businesses receive only their enabled tool groups', async () => {
   company({ types: ['farm', 'trailer_rental'] });
-  jest.spyOn(db.Product, 'find').mockReturnValue({ sort: () => ({ skip: () => ({ limit: () => ({ lean: async () => [] }) }) }) });
+  jest.spyOn(db.Product, 'find').mockReturnValue({ select() { return this; }, sort: () => ({ skip: () => ({ limit: () => ({ lean: async () => [] }) }) }) });
   jest.spyOn(db.Product, 'countDocuments').mockResolvedValue(0);
   const loaded = await toolsPage(actor, business, new URL('https://example.test/business?tool=products'));
-  expect(loaded.available).toEqual(['products', 'livestock', 'orders', 'trailers', 'reservations']);
+  expect(loaded.available).toEqual(['products', 'livestock', 'orders', 'enquiries', 'trailers', 'reservations']);
   await expect(toolsPage(actor, business, new URL('https://example.test/business?tool=vehicles'))).rejects.toMatchObject({ status: 403 });
 });
 test.each(['product', 'livestock'])('orders reject an unverified %s seller within the stock transaction', async kind => {
@@ -53,7 +56,7 @@ test.each(['product', 'livestock'])('orders reject an unverified %s seller withi
   const exists = jest.spyOn(db.Business, 'exists').mockReturnValue({ session: async () => null });
   const create = jest.spyOn(db.Order, 'create');
   await expect(placeOrder(actor, { items: [{ listing: 'c'.repeat(24), kind, quantity: 1 }], fulfilment: 'collection' })).rejects.toMatchObject({ status: 409 });
-  expect(exists).toHaveBeenCalledWith({ _id: business, active: true, verified: true, types: 'farm' });
+  expect(exists).toHaveBeenCalledWith({ _id: business, active: true, verified: true, $or: [{ verificationStatus: 'APPROVED' }, { verificationStatus: { $exists: false } }], types: 'farm' });
   expect(create).not.toHaveBeenCalled();
 });
 test('direct API requests cannot create listings for an unverified business', async () => {
@@ -85,7 +88,7 @@ test('direct trailer requests reject unverified providers without creating a res
     const path = 'rentals/reservations';
     const response = await handleApi(new Request(`https://example.test/api/v1/${path}`, { method: 'POST', headers: { Cookie: await sessionCookie.serialize('1'.repeat(64)), 'Content-Type': 'application/json' }, body: JSON.stringify({ trailer: 'c'.repeat(24), start: new Date(Date.now() + 86400000).toISOString(), end: new Date(Date.now() + 172800000).toISOString() }) }), path);
     expect(response.status).toBe(409);
-    expect(eligible).toHaveBeenCalledWith({ _id: business, active: true, verified: true, types: 'trailer_rental' });
+    expect(eligible).toHaveBeenCalledWith({ _id: business, active: true, verified: true, $or: [{ verificationStatus: 'APPROVED' }, { verificationStatus: { $exists: false } }], types: 'trailer_rental' });
     expect(create).not.toHaveBeenCalled();
   } finally { if (original === undefined) delete process.env.MONGODB_URI; else process.env.MONGODB_URI = original; }
 });
@@ -101,7 +104,7 @@ test.each(['farming/products', 'farming/livestock', 'rentals/trailers', 'transpo
     jest.spyOn(model, 'find').mockReturnValue(chain);
     const response = await handleApi(new Request(`https://example.test/api/v1/${path}`), path);
     expect(response.status).toBe(200);
-    expect(filter).toHaveBeenCalledWith('_id', { active: true, verified: true, types: path.startsWith('farming') ? 'farm' : path.startsWith('rentals') ? 'trailer_rental' : 'taxi_operator' });
+    expect(filter).toHaveBeenCalledWith('_id', { active: true, verified: true, $or: [{ verificationStatus: 'APPROVED' }, { verificationStatus: { $exists: false } }], types: path.startsWith('farming') ? 'farm' : path.startsWith('rentals') ? 'trailer_rental' : 'taxi_operator' });
   } finally { if (original === undefined) delete process.env.MONGODB_URI; else process.env.MONGODB_URI = original; }
 });
 
@@ -117,7 +120,7 @@ test('changing business services atomically resets verification', async () => {
     const path = `businesses/${business}`;
     const response = await handleApi(new Request(`https://example.test/api/v1/${path}`, { method: 'PATCH', headers: { Cookie: await sessionCookie.serialize('1'.repeat(64)), 'Content-Type': 'application/json' }, body: JSON.stringify({ types: ['farm', 'trailer_rental'] }) }), path);
     expect(response.status).toBe(200);
-    expect(update).toHaveBeenCalledWith(business, { $set: { types: ['farm', 'trailer_rental'], verified: false } }, { new: true, runValidators: true });
+    expect(update).toHaveBeenCalledWith(business, { $set: { types: ['farm', 'trailer_rental'], verified: false, verificationStatus: 'PENDING' } }, { new: true, runValidators: true });
   } finally { if (original === undefined) delete process.env.MONGODB_URI; else process.env.MONGODB_URI = original; }
 });
 

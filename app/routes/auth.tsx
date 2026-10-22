@@ -9,6 +9,7 @@ import { demoEnabled } from '../.server/demo-mode';
 import { googleAvailability } from '../.server/modules/auth/google-provider';
 import { AuthIdentity, User } from '../.server/database/models';
 const googleMessages: Record<string, string> = {
+  database_unavailable: 'Google sign-in cannot complete because the marketplace database is unreachable. Please try again once the connection is restored.',
   account_exists: 'Sign in with your existing account first, then return to this page to link Google. Accounts are never linked just because their emails match.',
   reauthenticate: 'Please sign in again with your existing password before linking Google.',
   unavailable: 'Google sign-in is unavailable. Check the server configuration or use your existing sign-in method.',

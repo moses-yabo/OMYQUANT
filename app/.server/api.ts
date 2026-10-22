@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
+import { rentalUnits } from '../lib/rental-pricing';
+import { myAssignments, updateMyAssignment } from './modules/assignments';
+import { businessRegistry, businessPermissions, approvedBusinessFilter, hasBusinessPermission } from '../lib/business-registry';
+import { validateBusinessDocuments } from './database/business-documents';
 import { z } from "zod";
-import { connectToDatabase } from "./database/connect";
+import { connectToDatabase, isDatabaseUnavailable } from "./database/connect";
 import { ImageError, validateListingImages } from './database/images';
 import { businessQueue, businessReview, verifyBusiness, findAdminAccount, setAdminAccess } from './modules/admin';
 import * as db from "./database/models";
@@ -182,7 +186,7 @@ export async function handleApi(request: Request, path: string) {
           remaining: { $gt: 0 },
           $expr: { $lt: [{ $subtract: ['$capacity', '$remaining'] }, { $min: ['$capacity', TAXI_PASSENGER_CAPACITY] }] },
           business: {
-            $in: await db.Business.distinct("_id", { active: true, verified: true, types: 'taxi_operator' }),
+            $in: await db.Business.distinct("_id", { ...approvedBusinessFilter(), types: 'taxi_operator' }),
           },
         })
           .populate({ path: "route", select: "name stops" })
@@ -204,7 +208,7 @@ export async function handleApi(request: Request, path: string) {
           continue;
         const filter: Record<string, unknown> = {
           business: {
-            $in: await db.Business.distinct("_id", { active: true, verified: true, types: resource.type }),
+            $in: await db.Business.distinct("_id", { ...approvedBusinessFilter(), types: resource.type }),
           },
         };
         if (key === "farming/products" || key === "farming/livestock")
@@ -214,6 +218,29 @@ export async function handleApi(request: Request, path: string) {
       }
     }
     const actor = await authenticate(request);
+    if (path === 'enquiries' && method === 'GET') return list(db.BusinessEnquiry, { customer: actor.id }, url);
+    if (path === 'farming/enquiries' && method === 'GET') {
+      const business = id.parse(url.searchParams.get('business'));
+      await manage(actor, business, 'farm', false, 'read');
+      return list(db.BusinessEnquiry, { business }, url);
+    }
+    if (path === 'enquiries' && method === 'POST') {
+      const input = z.object({ listing: id, kind: z.enum(['product', 'livestock']), question: z.string().trim().min(1).max(4000) }).strict().parse(await body(request));
+      const listing = await (input.kind === 'product' ? db.Product : db.Livestock).findOne({ _id: input.listing, status: 'published' });
+      if (!listing || !await db.Business.exists({ _id: listing.business, ...approvedBusinessFilter(), types: 'farm' })) throw new ApiError(404, 'Listing unavailable');
+      return json(await db.BusinessEnquiry.create({ ...input, customer: actor.id, business: listing.business }), 201);
+    }
+    const enquiry = path.match(/^farming\/enquiries\/([a-f0-9]{24})$/i);
+    if (enquiry && method === 'PATCH') {
+      const record = await db.BusinessEnquiry.findById(enquiry[1]);
+      if (!record) throw new ApiError(404, 'Enquiry not found');
+      await manage(actor, record.business, 'farm');
+      const input = z.object({ answer: z.string().trim().min(1).max(4000) }).strict().parse(await body(request));
+      return json(await db.BusinessEnquiry.findByIdAndUpdate(record._id, { $set: { ...input, answeredBy: actor.id, answeredAt: new Date() } }, { new: true }));
+    }
+    if (path === 'work' && method === 'GET') return json(await myAssignments(actor));
+    const workMatch = path.match(/^work\/(departure|delivery)\/([a-f0-9]{24})$/i);
+    if (workMatch && method === 'PATCH') return json(await updateMyAssignment(actor, workMatch[1], workMatch[2], await body(request)));
     const supportMatch = path.match(/^(admin\/)?support(?:\/([a-f0-9]{24}))?$/i);
     if (supportMatch) {
       const administrative = Boolean(supportMatch[1]);
@@ -256,10 +283,14 @@ export async function handleApi(request: Request, path: string) {
           .partial()
           .extend({ active: z.boolean().optional() })
           .parse(await body(request));
+        if (input.kind && !input.types) throw new ApiError(400, 'Provide service types when changing business type');
+        if (input.kind && input.types && !businessRegistry[input.kind].services.every(type => input.types!.includes(type))) throw new ApiError(400, 'Business type and services do not match');
+        if (input.types && !input.kind && company.kind && !businessRegistry[company.kind as keyof typeof businessRegistry].services.every(type => input.types!.includes(type))) throw new ApiError(400, 'Update the business type to match its services');
+        if (input.verificationDocuments) await validateBusinessDocuments(actor.id, input.verificationDocuments);
         return json(
           await db.Business.findByIdAndUpdate(
             company._id,
-            { $set: { ...input, ...(input.types ? { verified: false } : {}) } },
+            { $set: { ...input, ...((input.types || input.kind || input.verificationDocuments) ? { verified: false, verificationStatus: 'PENDING' } : {}) } },
             { new: true, runValidators: true },
           ),
         );
@@ -269,7 +300,7 @@ export async function handleApi(request: Request, path: string) {
       /^farming\/farmers\/([a-f0-9]{24})\/dashboard$/i,
     );
     if (dashboardMatch && method === "GET") {
-      await manage(actor, dashboardMatch[1], "farm");
+      await manage(actor, dashboardMatch[1], "farm", false, 'read');
       const business = new mongoose.Types.ObjectId(dashboardMatch[1]);
       const [products, livestock, orders, totals] = await Promise.all([
         db.Product.countDocuments({ business }),
@@ -322,9 +353,11 @@ export async function handleApi(request: Request, path: string) {
     if (path === "businesses") {
       if (method === "POST") {
         const input = businessSchema.parse(await body(request));
+        if (!input.verificationDocuments?.length || (input.kind && !businessRegistry[input.kind].services.every(type => input.types.includes(type)))) throw new ApiError(400, 'Select matching services and upload the required verification documents');
+        await validateBusinessDocuments(actor.id, input.verificationDocuments ?? []);
         const company = await mongoose.connection.transaction(
           async (session) => {
-            const [company] = await db.Business.create([input], { session });
+            const [company] = await db.Business.create([{ ...input, owner: actor.id, verified: false, verificationStatus: 'PENDING' }], { session });
             await db.Membership.create(
               [
                 {
@@ -355,16 +388,18 @@ export async function handleApi(request: Request, path: string) {
       /^businesses\/([a-f0-9]{24})\/memberships$/i,
     );
     if (membershipMatch) {
-      await manage(actor, membershipMatch[1], undefined, true);
+      const memberCompany = await manage(actor, membershipMatch[1], undefined, true);
       if (method === "GET")
         return list(db.Membership, { business: membershipMatch[1] }, url);
       if (method === "POST") {
         const input = z
-          .object({ user: id, role: z.enum(["manager", "staff"]) })
+          .object({ user: id, role: z.enum(["manager", "staff"]), permissions: z.array(z.string().refine(value => businessPermissions.includes(value))).max(10).default([]) })
           .strict()
           .parse(await body(request));
         if (!(await db.User.exists({ _id: input.user, active: true })))
           throw new ApiError(400, "User not found");
+        input.permissions = [...new Set(input.permissions.flatMap(permission => permission.endsWith(':write') ? [permission, permission.replace(':write', ':read')] : [permission]))];
+        if (input.permissions.some(permission => !memberCompany.types.includes(permission.split(':')[0]))) throw new ApiError(400, 'Membership permissions must match this business services');
         return json(
           await db.Membership.create({
             ...input,
@@ -390,14 +425,15 @@ export async function handleApi(request: Request, path: string) {
           : {};
         const managedBusiness = url.searchParams.get("business");
         if (managedBusiness) {
-          await manage(actor, id.parse(managedBusiness), resource.type);
+          await manage(actor, id.parse(managedBusiness), resource.type, false, 'read');
           filter.business = managedBusiness;
         }
-        if (!resource.public && !managedBusiness)
-          filter.business = {
-            $in: await db.Business.distinct('_id', { active: true, verified: true, types: resource.type, _id: { $in: await db.Membership.distinct('business', { user: actor.id }) } }),
-          };
-        if (resource.public && !managedBusiness) filter.business = { $in: await db.Business.distinct('_id', { active: true, verified: true, types: resource.type }) };
+        if (!resource.public && !managedBusiness) {
+          const memberships = await db.Membership.find({ user: actor.id }).select('business role permissions').lean();
+          const permitted = memberships.filter(member => hasBusinessPermission(member as unknown as { role: string; permissions?: string[] }, resource.type, 'read')).map(member => member.business);
+          filter.business = { $in: await db.Business.distinct('_id', { ...approvedBusinessFilter(), types: resource.type, _id: { $in: permitted } }) };
+        }
+        if (resource.public && !managedBusiness) filter.business = { $in: await db.Business.distinct('_id', { ...approvedBusinessFilter(), types: resource.type }) };
         if (
           !managedBusiness &&
           (key === "farming/products" || key === "farming/livestock")
@@ -467,7 +503,7 @@ export async function handleApi(request: Request, path: string) {
     if (path === "transport/departures") {
       if (method === 'GET') {
         const business = id.parse(url.searchParams.get('business'));
-        await manage(actor, business, 'taxi_operator');
+        await manage(actor, business, 'taxi_operator', false, 'read');
         return list(db.Departure, { business }, url);
       }
       if (method === "POST") {
@@ -486,7 +522,7 @@ export async function handleApi(request: Request, path: string) {
           // Serialize scheduling for this vehicle so one taxi cannot acquire
           // multiple seat pools at the same departure time.
           const vehicle = await db.Vehicle.findOneAndUpdate({ _id: input.vehicle, business: input.business }, { $inc: { scheduleVersion: 1 } }, { new: true, session });
-          if (!vehicle || !await db.Route.exists({ _id: input.route, business: input.business }).session(session)) throw new ApiError(400, 'Vehicle and route must belong to business');
+          if (!vehicle || vehicle.active === false || !await db.Route.exists({ _id: input.route, business: input.business }).session(session)) throw new ApiError(400, 'Vehicle and route must belong to business and be available');
           if (await db.Departure.exists({ vehicle: input.vehicle, startsAt: input.startsAt, status: { $ne: 'cancelled' } }).session(session)) throw new ApiError(409, 'This taxi is already scheduled at that time. Select another vehicle.');
           const capacity = Math.min(Number(vehicle.capacity), TAXI_PASSENGER_CAPACITY);
           if (!Number.isInteger(capacity) || capacity < 1) throw new ApiError(400, 'Vehicle needs a valid passenger capacity');
@@ -508,6 +544,7 @@ export async function handleApi(request: Request, path: string) {
       const input = z
         .object({
           trailer: id,
+          rateUnit: z.enum(['hour', 'day', 'month']).default('day'),
           start: z.coerce.date().min(new Date()),
           end: z.coerce.date(),
         })
@@ -519,10 +556,10 @@ export async function handleApi(request: Request, path: string) {
         active: true,
       });
       if (!trailer) throw new ApiError(404, "Trailer unavailable");
-      if (!await db.Business.exists({ _id: trailer.business, active: true, verified: true, types: 'trailer_rental' })) throw new ApiError(409, 'Trailer provider is not verified or available');
-      const total =
-        Math.ceil((input.end.getTime() - input.start.getTime()) / 86400000) *
-        Number(trailer.dailyPrice);
+      if (!await db.Business.exists({ _id: trailer.business, ...approvedBusinessFilter(), types: 'trailer_rental' })) throw new ApiError(409, 'Trailer provider is not verified or available');
+      const unitPrice = input.rateUnit === 'hour' ? trailer.hourlyPrice : input.rateUnit === 'month' ? trailer.monthlyPrice : trailer.dailyPrice;
+      if (unitPrice === undefined) throw new ApiError(400, 'This rental rate is not offered by the provider');
+      const total = rentalUnits(input.start.getTime(), input.end.getTime(), input.rateUnit) * Number(unitPrice);
       if (!Number.isSafeInteger(total))
         throw new ApiError(400, "Rental total exceeds supported range");
       return json(
@@ -530,6 +567,7 @@ export async function handleApi(request: Request, path: string) {
           ...input,
           customer: actor.id,
           business: String(trailer.business),
+          unitPrice,
           total,
         }),
         201,
@@ -628,6 +666,7 @@ export async function handleApi(request: Request, path: string) {
           .strict()
           .parse(await body(request));
         const company = await manage(actor, input.business, "logistics");
+        if (company.logisticsProfile?.available === false) throw new ApiError(409, 'This delivery service is currently unavailable');
         if (!company.verified)
           throw new ApiError(403, "Verified logistics business required");
         if (
@@ -664,9 +703,9 @@ export async function handleApi(request: Request, path: string) {
           if (
             !(await db.Business.exists({
               _id: quote.business,
-              active: true,
-              verified: true,
+              ...approvedBusinessFilter(),
               types: "logistics",
+              'logisticsProfile.available': { $ne: false },
             }).session(session))
           )
             throw new ApiError(409, "Provider no longer eligible");
@@ -678,6 +717,17 @@ export async function handleApi(request: Request, path: string) {
           return delivery;
         }),
       );
+    }
+    const deliveryAssignment = path.match(/^logistics\/requests\/([a-f0-9]{24})\/assignment$/i);
+    if (deliveryAssignment && method === 'PATCH') {
+      const input = z.object({ vehicle: id, driver: id }).strict().parse(await body(request));
+      const delivery = await db.Delivery.findById(deliveryAssignment[1]);
+      if (!delivery) throw new ApiError(404, 'Delivery not found');
+      await manage(actor, delivery.business, 'logistics');
+      if (!await db.Vehicle.exists({ _id: input.vehicle, business: delivery.business, active: { $ne: false } }) || !await db.Driver.exists({ _id: input.driver, business: delivery.business, active: { $ne: false } })) throw new ApiError(400, 'Assign available personnel and vehicles from this business');
+      const assigned = await db.Delivery.findOneAndUpdate({ _id: delivery._id, business: delivery.business, status: 'assigned' }, { $set: input }, { new: true });
+      if (!assigned) throw new ApiError(409, 'Delivery can no longer be assigned');
+      return json(assigned);
     }
     const deliveryStatus = path.match(
       /^logistics\/requests\/([a-f0-9]{24})\/status$/i,
@@ -867,7 +917,7 @@ export async function handleApi(request: Request, path: string) {
     };
     if (method === "GET" && path in histories) {
       const filter = url.searchParams.get("business");
-      if (filter) await manage(actor, id.parse(filter), path === 'farming/orders' ? 'farm' : path === 'transport/bookings' ? 'taxi_operator' : path === 'rentals/reservations' ? 'trailer_rental' : path === 'logistics/requests' ? 'logistics' : 'commercial_transport');
+      if (filter) await manage(actor, id.parse(filter), path === 'farming/orders' ? 'farm' : path === 'transport/bookings' ? 'taxi_operator' : path === 'rentals/reservations' ? 'trailer_rental' : path === 'logistics/requests' ? 'logistics' : 'commercial_transport', false, 'read');
       return list(
         histories[path as keyof typeof histories],
         filter ? { business: filter } : { customer: actor.id },
@@ -896,6 +946,10 @@ export async function handleApi(request: Request, path: string) {
         { error: { message: "Resource already exists" } },
         { status: 409, headers },
       );
+    if (isDatabaseUnavailable(error)) return Response.json(
+      { error: { message: 'Marketplace database is temporarily unreachable. Please try again shortly.' } },
+      { status: 503, headers: { ...headers, 'Retry-After': '10' } },
+    );
     console.error(
       "API request failed",
       error instanceof Error ? error.name : "UnknownError",

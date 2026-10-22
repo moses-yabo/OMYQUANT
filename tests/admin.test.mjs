@@ -30,16 +30,19 @@ test('regular administrators cannot find accounts or grant roles', async () => {
 });
 test('super administrators can grant and revoke regular roles with atomic super admin protection', async () => {
   const write = jest.spyOn(db.User, 'findOneAndUpdate').mockReturnValue({ select: async () => ({ _id: businessId, admin: true }) });
+  jest.spyOn(db.AdminAccessReview, 'init').mockResolvedValue(db.AdminAccessReview);
+  jest.spyOn(db.AdminAccessReview, 'create').mockResolvedValue([{}]);
+  jest.spyOn(mongoose.connection, 'transaction').mockImplementation(work => work({}));
   const superActor = { ...actor, superAdmin: true };
   for (const admin of [true, false]) {
     await setAdminAccess(superActor, businessId, { admin });
-    expect(write).toHaveBeenLastCalledWith({ _id: businessId, active: true, superAdmin: { $ne: true } }, { $set: { admin } }, { new: true, runValidators: true });
+    expect(write).toHaveBeenLastCalledWith({ _id: businessId, active: true, superAdmin: { $ne: true } }, { $set: { admin } }, { new: true, runValidators: true, session: {} });
   }
   write.mockReturnValue({ select: async () => null });
   await expect(setAdminAccess(superActor, actor.id, { admin: false })).rejects.toMatchObject({ status: 409 });
   await expect(setAdminAccess(superActor, businessId, { admin: true, superAdmin: true })).rejects.toThrow();
 });
-beforeEach(() => { process.env.MONGODB_URI = 'mongodb://unused-in-admin-test'; jest.spyOn(mongoose, 'connect').mockResolvedValue(mongoose); });
+beforeEach(() => { process.env.MONGODB_URI = 'mongodb://unused-in-admin-test'; jest.spyOn(mongoose, 'connect').mockResolvedValue(mongoose); jest.spyOn(db.Membership, 'exists').mockReturnValue({ session: async () => null }); });
 afterEach(() => { jest.restoreAllMocks(); if (initialUri === undefined) delete process.env.MONGODB_URI; else process.env.MONGODB_URI = initialUri; });
 
 test('all admin business services reject normal business owners before querying records', async () => {
@@ -91,7 +94,7 @@ test('verification change and reviewer audit use the same transaction', async ()
   const audit = jest.spyOn(db.BusinessReview, 'create').mockResolvedValue([{}]);
   await expect(verifyBusiness(actor, businessId, { verified: true, reason: 'Details reviewed' })).resolves.toMatchObject({ verified: true });
   expect(save).toHaveBeenCalledWith({ session });
-  expect(audit).toHaveBeenCalledWith([{ business: businessId, reviewer: actor.id, verified: true, reason: 'Details reviewed' }], { session });
+  expect(audit).toHaveBeenCalledWith([{ business: businessId, reviewer: actor.id, verified: true, previousStatus: 'PENDING', status: 'APPROVED', reason: 'Details reviewed' }], { session });
   await expect(verifyBusiness(actor, businessId, { verified: true })).rejects.toMatchObject({ status: 409 });
 });
 test('missing businesses and invalid review inputs cannot create audit decisions', async () => {

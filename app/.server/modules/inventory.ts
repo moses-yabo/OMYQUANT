@@ -1,3 +1,4 @@
+import { approvedBusinessFilter } from '../../lib/business-registry';
 import mongoose from "mongoose";
 import { z } from "zod";
 import * as db from "../database/models";
@@ -45,7 +46,7 @@ export async function placeOrder(actor: Actor, body: unknown) {
         throw new ApiError(400, "Each order must contain a single seller");
       business = String(listing.business);
       if (
-        !(await db.Business.exists({ _id: business, active: true, verified: true, types: 'farm' }).session(
+        !(await db.Business.exists({ _id: business, ...approvedBusinessFilter(), types: 'farm' }).session(
           session,
         ))
       )
@@ -106,8 +107,7 @@ export async function bookSeats(actor: Actor, body: unknown) {
     if (
       !(await db.Business.exists({
         _id: departure.business,
-        active: true,
-        verified: true,
+        ...approvedBusinessFilter(),
         types: 'taxi_operator',
       }).session(session))
     )
