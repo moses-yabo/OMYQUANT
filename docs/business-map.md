@@ -16,6 +16,8 @@ Lookups are limited to 20 uncached attempts per account per 15 minutes. Results 
 
 ## Hosting and privacy
 
+For failed lookups, the UI distinguishes rejected API credentials/restrictions, provider quota, timeouts, network failures and unexpected responses. Render logs record only the provider, failure category and HTTP status when available. Raw provider bodies, request URLs, keys and business addresses are excluded from these diagnostics. For 401/403, check the key in Render Environment and Geoapify project restrictions: browser referrer restrictions may reject server-side requests. For 429, check the provider quota. Redeploy after environment changes. An incomplete address should be corrected with its town/suburb, but does not by itself establish the cause of a provider failure.
+
 Geocoding sends physical business addresses to Geoapify. Map tiles are requested directly by the browser from OpenStreetMap; viewing them discloses the browser's IP/referrer and requested map area to that service. No Google/browser location permission or live vehicle tracking is used. Maps and address lookup are separate services: basemap viewing needs no Geoapify key, while address lookup does.
 
 Normal interactive tile use follows the [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/): HTTPS, visible attribution, normal browser caching/referrer, no bulk downloads or offline prefetch. Tile availability is external to this app. Choose another licensed tile provider if usage/hosting requirements exceed that service's policy. Neither Leaflet nor the geocoder guarantees address accuracy or delivery navigation.

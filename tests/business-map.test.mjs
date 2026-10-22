@@ -9,7 +9,7 @@ const business = 'b'.repeat(24);
 const key = process.env.GEOAPIFY_API_KEY;
 const point = { lat: -25.7, lon: 28.2, formatted: '10 Test Street, Pretoria, South Africa', place_id: 'match-1', result_type: 'building', country_code: 'za', rank: { confidence: 1 } };
 const record = { _id: business, name: 'Taxi operator', types: ['taxi_operator'], active: true, verified: true, locations: [{ address: '10 Test Street, Pretoria', province: 'Gauteng', latitude: -25.7, longitude: 28.2 }] };
-beforeEach(() => { process.env.GEOAPIFY_API_KEY = 'private-test-key'; clearGeocodingCache(); jest.spyOn(db.LoginAttempt, 'findOneAndUpdate').mockResolvedValue({ count: 1 }); });
+beforeEach(() => { jest.spyOn(console, 'warn').mockImplementation(() => {}); process.env.GEOAPIFY_API_KEY = 'private-test-key'; clearGeocodingCache(); jest.spyOn(db.LoginAttempt, 'findOneAndUpdate').mockResolvedValue({ count: 1 }); });
 afterEach(() => { jest.restoreAllMocks(); clearGeocodingCache(); if (key === undefined) delete process.env.GEOAPIFY_API_KEY; else process.env.GEOAPIFY_API_KEY = key; });
 const provider = results => jest.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ results }));
 
@@ -85,7 +85,7 @@ test('missing configuration and provider failures never leak secrets or prevent 
   await expect(geocodeAddress('Test', 'Gauteng', actor.id)).rejects.toMatchObject({ status: 503 });
   process.env.GEOAPIFY_API_KEY = 'private-test-key';
   fetch.mockRejectedValue(new Error('private-test-key at provider URL'));
-  await expect(geocodeAddress('Test', 'Gauteng', actor.id)).rejects.toMatchObject({ status: 503, message: 'The address service could not complete this lookup. Please try again later.' });
+  await expect(geocodeAddress('Test', 'Gauteng', actor.id)).rejects.toMatchObject({ status: 503, message: 'The server could not reach Geoapify. Please try again later.' });
   await expect(autoGeocodeLocation(location, actor.id)).resolves.toEqual(location);
 });
 test('rate-limited lookups never contact the provider', async () => {
@@ -93,6 +93,21 @@ test('rate-limited lookups never contact the provider', async () => {
   const fetch = provider([point]);
   await expect(geocodeAddress('Test', 'Gauteng', actor.id)).rejects.toMatchObject({ status: 429 });
   expect(fetch).not.toHaveBeenCalled();
+});
+
+test.each([[401, 'API key'], [403, 'access restrictions'], [429, 'request limit'], [500, 'unable to process']])('provider HTTP %s produces actionable errors without leaking response contents', async (status, message) => {
+  jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('private-test-key provider details', { status }));
+  await expect(geocodeAddress('Test', 'Gauteng', actor.id)).rejects.toMatchObject({ status: 503, message: expect.stringContaining(message) });
+  expect(console.warn).toHaveBeenCalledWith('Geocoding lookup failed', { provider: 'geoapify', reason: 'http', status });
+  expect(JSON.stringify(console.warn.mock.calls)).not.toContain('private-test-key');
+});
+
+test('timeouts and invalid provider responses have distinct safe diagnostics', async () => {
+  const fetch = jest.spyOn(globalThis, 'fetch').mockRejectedValue(new DOMException('private-test-key', 'TimeoutError'));
+  await expect(geocodeAddress('Test', 'Gauteng', actor.id)).rejects.toThrow('timed out');
+  fetch.mockResolvedValue(Response.json({ results: [{ unexpected: 'private-test-key' }] }));
+  await expect(geocodeAddress('Test', 'Gauteng', actor.id)).rejects.toThrow('unexpected response');
+  expect(JSON.stringify(console.warn.mock.calls)).not.toContain('private-test-key');
 });
 test('confirmed address matches are persisted with provenance and a transactional reviewer audit', async () => {
   provider([point]);
