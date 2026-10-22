@@ -4,20 +4,20 @@
   flex-wrap: wrap;
   gap: 10px;
   padding: 14px 18px;
-  background: #f4f7ed;
-  border-bottom: 1px solid #dce5cb;
+  background: var(--theme-surface-muted, #f4f7ed);
+  border-bottom: 1px solid var(--theme-border, #dce5cb);
 }
 
 .admin-navigation-role {
   font-size: 12px;
   font-weight: 600;
-  color: #41613e;
+  color: var(--theme-text, #41613e);
   margin-right: auto;
 }
 
 .admin-navigation .button[aria-current="page"] {
-  background: #e4edda;
-  border-color: #819c63;
+  background: var(--theme-surface-tint, #e4edda);
+  border-color: var(--theme-border-strong, #819c63);
 }
 
 @media (max-width: 650px) {

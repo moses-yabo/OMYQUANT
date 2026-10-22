@@ -1,3 +1,4 @@
+import { ThemeToggle } from './theme';
 import {
   Link,
   Form,
@@ -104,7 +105,7 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
         <div className="app-main">
           <header className="topbar">
             <span className="topbar-label">Platform oversight</span>
-            <div className="topbar-actions">
+            <div className="topbar-actions"><ThemeToggle />
               <span className="sign-in">
                 <Icon name="user" size={17} />
                 {root?.user?.name}
@@ -147,7 +148,7 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
         </nav>
       </aside>
       <div className="app-main">
-        <header className="topbar"><span className="topbar-label">{workspace.business.name}</span><div className="topbar-actions"><Link className="button outline small" to="/business?view=all">Switch business</Link><Form method="post" action="/account"><input type="hidden" name="intent" value="logout" /><button className="button outline small">Sign out</button></Form></div></header>
+        <header className="topbar"><span className="topbar-label">{workspace.business.name}</span><div className="topbar-actions"><ThemeToggle /><Link className="button outline small" to="/business?view=all">Switch business</Link><Form method="post" action="/account"><input type="hidden" name="intent" value="logout" /><button className="button outline small">Sign out</button></Form></div></header>
         {navigation.state !== 'idle' && <div className="navigation-progress" role="progressbar" aria-label="Loading page" />}
         <main id="main-content">{children}</main>
         <footer className="footer"><span>OMYQUANT</span><span>Business management workspace</span></footer>
@@ -247,7 +248,7 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
           <span className="topbar-label">
             A little closer. A lot more possible.
           </span>
-          <div className="topbar-actions">
+          <div className="topbar-actions"><ThemeToggle />
             <span className="location">
               <Icon name="pin" size={16} /> South Africa
             </span>

@@ -10,6 +10,8 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { ThemeProvider, ThemeToggle } from './components/theme';
+import { themeBootstrap } from './lib/theme';
 import { api, result } from "./.server/frontend";
 import { demoEnabled } from "./.server/demo-mode";
 import { sessionToken } from './.server/modules/auth/auth';
@@ -68,10 +70,11 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
         <Meta />
         <Links />
       </head>
@@ -79,7 +82,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -109,6 +112,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 
   return (
     <main className="error-page">
+      <ThemeToggle />
       <h1>{message}</h1>
       <p>{details}</p>
       {stack && (

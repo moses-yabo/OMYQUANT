@@ -1,8 +1,8 @@
 .admin-overview-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.admin-overview-stats .form-panel { display: flex; flex-direction: column; gap: 10px; color: #41613e; }
+.admin-overview-stats .form-panel { display: flex; flex-direction: column; gap: 10px; color: var(--theme-text, #41613e); }
 .admin-overview-stats strong { font-size: 32px; line-height: 1; }
 .admin-overview-stats span { font-size: 12px; line-height: 1.6; }
-.admin-overview-stats a:hover { border-color: #819c63; }
+.admin-overview-stats a:hover { border-color: var(--theme-border-strong, #819c63); }
 .admin-overview-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .admin-overview-actions h3 { font-weight: 600; margin-bottom: 10px; }
 .admin-overview-actions .button { margin-top: 16px; }

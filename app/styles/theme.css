@@ -1,0 +1,27 @@
+:root { color-scheme: light; }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --theme-page: #111a15;
+  --theme-surface: #1a261f;
+  --theme-field: #152019;
+  --theme-surface-muted: #25352b;
+  --theme-surface-tint: #2a3d2c;
+  --theme-overlay: rgba(26, 38, 31, .94);
+  --theme-text: #e7eee8;
+  --theme-muted: #b3c2b5;
+  --theme-accent: #b8d99a;
+  --theme-border: #435447;
+  --theme-border-strong: #78966e;
+  --theme-danger: #ffc0b8;
+  --theme-danger-surface: #452729;
+  --theme-focus: #c5e7a1;
+}
+.theme-control { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; white-space: nowrap; }
+.theme-control select { padding: 7px; border: 1px solid var(--theme-border, #ccd5c2); border-radius: 6px; background: var(--theme-surface, #fff); color: var(--theme-text, #25372d); font: inherit; }
+.theme-control select:focus-visible { outline: 2px solid var(--theme-focus, #617c29); outline-offset: 3px; }
+.error-page .theme-control { margin-bottom: 24px; }
+@media (max-width: 650px) {
+  .topbar { height: auto; min-height: 57px; padding-block: 10px; flex-wrap: wrap; }
+  .topbar-actions { flex-wrap: wrap; gap: 10px; }
+  .theme-control span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
