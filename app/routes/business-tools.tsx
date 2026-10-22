@@ -10,6 +10,8 @@ import {
   toolKey,
   toolMutation,
   toolDefinitions,
+  businessStatistics,
+  type BusinessStatistic,
 } from "../.server/modules/business-tools";
 import { ApiError } from "../.server/shared/http";
 import {
@@ -42,8 +44,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const actor = await actorFor(request);
   try {
     const loaded = await toolsPage(actor, params.id!, new URL(request.url));
+    const overview = !new URL(request.url).searchParams.has('tool');
+    const statistics = overview ? await businessStatistics(params.id!, loaded.available) : [];
     // Serialize database values explicitly for the route boundary.
-    return data(JSON.parse(JSON.stringify(loaded)) as ToolsData, {
+    return data(JSON.parse(JSON.stringify({ ...loaded, overview, statistics })) as ToolsData, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
@@ -86,6 +90,8 @@ type RecordItem = {
   dropoff?: { province?: string };
 };
 type ToolsData = {
+  overview: boolean;
+  statistics: BusinessStatistic[];
   businesses: { _id: string; name: string }[];
   writable: boolean;
   business: { _id: string; name: string };
@@ -340,14 +346,13 @@ export default function BusinessTools({
   const pageLink = (page: number) =>
     `?${new URLSearchParams({ tool, page: String(page) })}`;
   return (
-    <Shell>
+    <Shell workspace={{ business: loaded.business, available: loaded.available }}>
       <div className="form-page">
-        <Link className="text-button" to="/business">
+        <Link className="text-button" to="/business?view=all">
           Back to My business
         </Link>
         <h1>{loaded.business.name}</h1>
         <label>Switch business<select value={loaded.business._id} onChange={event => navigate(`/business/${event.target.value}/tools`)}>{loaded.businesses.map(business => <option key={business._id} value={business._id}>{business.name}</option>)}</select></label>
-        <Link className="button outline small" to="/">Personal marketplace</Link>{' '}
         <Link className="button outline small" to={`/business/${loaded.business._id}/profile`}>Business profile and team</Link>
         <p className="muted">
           Verified business tools. Access follows your membership and the
@@ -357,10 +362,11 @@ export default function BusinessTools({
           Help and complaints
         </Link>
         <nav className="category-tabs" aria-label="Business services">
+          <Link className={`tab ${loaded.overview ? 'active' : ''}`} to="?">Overview</Link>
           {loaded.available.map((key) => (
             <Link
               key={key}
-              className={`tab ${key === tool ? "active" : ""}`}
+              className={`tab ${!loaded.overview && key === tool ? "active" : ""}`}
               aria-current={key === tool ? "page" : undefined}
               to={`?tool=${key}`}
             >
@@ -378,6 +384,7 @@ export default function BusinessTools({
             {actionData.success}
           </p>
         )}
+        {loaded.overview ? <section className="form-panel"><h2>Business statistics</h2><p className="muted">All-time records for {loaded.business.name}, with current upcoming and active work shown separately.</p><div className="form-grid">{loaded.statistics.map(statistic => <Link className="activity-card" key={`${statistic.tool}-${statistic.label ?? statistic.detail}`} to={`?tool=${statistic.tool}`}><h3>{statistic.label ?? businessToolLabels[statistic.tool]}</h3><strong>{statistic.format === 'money' ? zar(statistic.count) : statistic.count}</strong><p className="muted">{statistic.detail}</p></Link>)}</div><p className="notice">Profit / loss: unavailable. Transaction values are not profit. Operating costs, refunds and complete payment receipts are not recorded, so gains and losses cannot yet be calculated reliably. Cancelled values are shown separately and are not treated as losses.</p></section> : <>
         <section className="form-panel">
           <h2>
             {businessToolLabels[tool]} ({loaded.total})
@@ -556,7 +563,9 @@ export default function BusinessTools({
                   ? "product"
                   : tool === "trailers"
                     ? "trailer"
-                    : tool === "vehicles"
+                    : tool === 'drivers' || tool === 'deliveryPersonnel'
+                      ? 'driver'
+                    : tool === "vehicles" || tool === 'deliveryVehicles'
                       ? "vehicle"
                       : tool === "routes"
                         ? "route"
@@ -752,6 +761,7 @@ export default function BusinessTools({
             </button>
           </Form>
         )}
+        </>}
       </div>
     </Shell>
   );

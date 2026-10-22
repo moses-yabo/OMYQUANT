@@ -204,7 +204,7 @@ test('authenticated linking requires a fresh password and is bound to the curren
   await expect(startGoogle(invalid)).rejects.toMatchObject({ status: 401 });
   expect(create).not.toHaveBeenCalled();
 });
-test('completed Google login rotates the existing session and redirects only to /account', async () => {
+test('completed Google login rotates the session and uses a fixed business-aware landing route', async () => {
   connection(); identities({ identity: { user: userId } });
   jest.spyOn(db.OAuthTransaction, 'findOneAndDelete').mockResolvedValue({ ...transaction, intent: 'login' });
   const token = await idToken();
@@ -214,7 +214,7 @@ test('completed Google login rotates the existing session and redirects only to 
   const old = '2'.repeat(64);
   const cookie = `${await googleCookie().serialize('1'.repeat(64))}; ${await sessionCookie.serialize(old)}`;
   const response = await completeGoogle(callback('code=x&state=expected-state&returnTo=https://attacker.test', cookie));
-  expect(response.headers.get('Location')).toBe('/account');
+  expect(response.headers.get('Location')).toBe('/business?welcome=1');
   const issued = await sessionCookie.parse(response.headers.getSetCookie().find(value => value.startsWith('omyquant_session=')));
   expect(issued).not.toBe(old);
   expect(create).toHaveBeenCalledWith({ user: userId, digest: digest(issued), expiresAt: expect.any(Date) });

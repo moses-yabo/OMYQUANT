@@ -1,16 +1,30 @@
-import { Form, Link, data, useNavigation } from "react-router";
+import { Form, Link, data, useNavigation, redirect } from "react-router";
 import type { Route } from "./+types/business";
 import { Shell } from "../components/shell";
 import { Icon } from "../components/icon";
 import { api, configured, mutationOrigin, result } from "../.server/frontend";
-import { boundedBody, imageBucket, imageLimit, ImageError, storeImage } from '../.server/database/images';
-import { authenticate } from '../.server/modules/auth/auth';
-import { manage } from '../.server/shared/access';
-import { ApiError } from '../.server/shared/http';
-import { useState } from 'react';
-import { businessRegistry, verificationStatus, approvedBusiness, type BusinessKind } from '../lib/business-registry';
-import { storeBusinessDocument, documentBucket } from '../.server/database/business-documents';
-import mongoose from 'mongoose';
+import {
+  boundedBody,
+  imageBucket,
+  imageLimit,
+  ImageError,
+  storeImage,
+} from "../.server/database/images";
+import { authenticate } from "../.server/modules/auth/auth";
+import { manage } from "../.server/shared/access";
+import { ApiError } from "../.server/shared/http";
+import { useState } from "react";
+import {
+  businessRegistry,
+  verificationStatus,
+  approvedBusiness,
+  type BusinessKind,
+} from "../lib/business-registry";
+import {
+  storeBusinessDocument,
+  documentBucket,
+} from "../.server/database/business-documents";
+import mongoose from "mongoose";
 type Business = {
   _id: string;
   name: string;
@@ -28,6 +42,19 @@ export async function loader({ request }: Route.LoaderArgs) {
       signedIn: false,
       error: "",
     };
+  const search = new URL(request.url).searchParams;
+  if (!search.has("view") && !search.has("register")) {
+    const workspaces = await api(request, "business-workspaces");
+    const loaded = await result<{ id: string; name: string }[]>(workspaces);
+    if (!workspaces.ok && workspaces.status !== 401)
+      throw new Response("Unable to load business access", {
+        status: workspaces.status,
+      });
+    if (loaded.data?.length === 1)
+      throw redirect(`/business/${loaded.data[0].id}/tools`);
+    if (search.has("welcome") && !loaded.data?.length)
+      throw redirect("/account");
+  }
   const response = await api(request, "businesses");
   const parsed = await result<Business[]>(response);
   return data(
@@ -50,9 +77,20 @@ export async function action({ request }: Route.ActionArgs) {
   let form: FormData;
   try {
     const bytes = await boundedBody(request, imageLimit * 5 + 65536);
-    form = await new Response(new Uint8Array(bytes), { headers: { 'Content-Type': request.headers.get('Content-Type') ?? '' } }).formData();
+    form = await new Response(new Uint8Array(bytes), {
+      headers: { "Content-Type": request.headers.get("Content-Type") ?? "" },
+    }).formData();
   } catch (error) {
-    return data({ error: error instanceof ImageError ? error.message : 'Invalid form submission.', success: '' }, { status: error instanceof ImageError ? error.status : 400 });
+    return data(
+      {
+        error:
+          error instanceof ImageError
+            ? error.message
+            : "Invalid form submission.",
+        success: "",
+      },
+      { status: error instanceof ImageError ? error.status : 400 },
+    );
   }
   const get = (key: string) => String(form.get(key) ?? "");
   let uploaded: { id: string; url: string } | undefined;
@@ -60,16 +98,35 @@ export async function action({ request }: Route.ActionArgs) {
   let payload: unknown;
   const documents: { file: string; name: string }[] = [];
   if (get("intent") === "product") {
-    const file = form.get('imageFile');
+    const file = form.get("imageFile");
     if (file instanceof File && file.size > 0) {
       try {
         await imageBucket();
         const actor = await authenticate(request);
-        if (!/^[a-f0-9]{24}$/i.test(get('business'))) throw new ImageError(400, 'Select a valid farm business.');
-        await manage(actor, get('business'), 'farm');
-        uploaded = await storeImage(new Uint8Array(await file.arrayBuffer()), get('business'), file.type);
+        if (!/^[a-f0-9]{24}$/i.test(get("business")))
+          throw new ImageError(400, "Select a valid farm business.");
+        await manage(actor, get("business"), "farm");
+        uploaded = await storeImage(
+          new Uint8Array(await file.arrayBuffer()),
+          get("business"),
+          file.type,
+        );
       } catch (error) {
-        return data({ error: error instanceof ImageError || error instanceof ApiError ? error.message : 'Image upload failed. Please try again.', success: '' }, { status: error instanceof ImageError || error instanceof ApiError ? error.status : 503 });
+        return data(
+          {
+            error:
+              error instanceof ImageError || error instanceof ApiError
+                ? error.message
+                : "Image upload failed. Please try again.",
+            success: "",
+          },
+          {
+            status:
+              error instanceof ImageError || error instanceof ApiError
+                ? error.status
+                : 503,
+          },
+        );
       }
     }
     path = "farming/products";
@@ -86,17 +143,47 @@ export async function action({ request }: Route.ActionArgs) {
       status: get("status"),
     };
   } else if (get("intent") === "business") {
-    const kind = get('kind') as BusinessKind;
-    if (!Object.hasOwn(businessRegistry, kind)) return data({ error: 'Select a business type.', success: '' }, { status: 400 });
+    const kind = get("kind") as BusinessKind;
+    if (!Object.hasOwn(businessRegistry, kind))
+      return data(
+        { error: "Select a business type.", success: "" },
+        { status: 400 },
+      );
     try {
       await imageBucket();
       const actor = await authenticate(request);
-      const files = form.getAll('verificationDocuments').filter((file): file is File => file instanceof File && file.size > 0);
-      if (!files.length || files.length > 5) throw new ApiError(400, 'Upload between one and five verification documents.');
-      for (const file of files) documents.push(await storeBusinessDocument(file, actor.id));
+      const files = form
+        .getAll("verificationDocuments")
+        .filter((file): file is File => file instanceof File && file.size > 0);
+      if (!files.length || files.length > 5)
+        throw new ApiError(
+          400,
+          "Upload between one and five verification documents.",
+        );
+      for (const file of files)
+        documents.push(await storeBusinessDocument(file, actor.id));
     } catch (error) {
-      for (const document of documents) await documentBucket().then(bucket => bucket.delete(new mongoose.Types.ObjectId(document.file))).catch(() => {});
-      return data({ error: error instanceof ApiError || error instanceof ImageError ? error.message : 'Document upload failed. Please try again.', success: '' }, { status: error instanceof ApiError || error instanceof ImageError ? error.status : 503 });
+      for (const document of documents)
+        await documentBucket()
+          .then((bucket) =>
+            bucket.delete(new mongoose.Types.ObjectId(document.file)),
+          )
+          .catch(() => {});
+      return data(
+        {
+          error:
+            error instanceof ApiError || error instanceof ImageError
+              ? error.message
+              : "Document upload failed. Please try again.",
+          success: "",
+        },
+        {
+          status:
+            error instanceof ApiError || error instanceof ImageError
+              ? error.status
+              : 503,
+        },
+      );
     }
     path = "businesses";
     payload = {
@@ -104,7 +191,12 @@ export async function action({ request }: Route.ActionArgs) {
       verificationDocuments: documents,
       name: get("name"),
       description: get("description"),
-      types: [...new Set([...businessRegistry[kind].services, ...form.getAll("types").map(String)])],
+      types: [
+        ...new Set([
+          ...businessRegistry[kind].services,
+          ...form.getAll("types").map(String),
+        ]),
+      ],
       contact: { email: get("email"), phone: get("phone") },
       locations: [{ address: get("address"), province: get("province") }],
     };
@@ -115,13 +207,20 @@ export async function action({ request }: Route.ActionArgs) {
     );
   const response = await api(request, path, "POST", payload);
   if (response.status >= 400 && response.status < 500 && documents.length) {
-    const { default: mongoose } = await import('mongoose');
-    for (const document of documents) await documentBucket().then(bucket => bucket.delete(new mongoose.Types.ObjectId(document.file))).catch(() => {});
+    const { default: mongoose } = await import("mongoose");
+    for (const document of documents)
+      await documentBucket()
+        .then((bucket) =>
+          bucket.delete(new mongoose.Types.ObjectId(document.file)),
+        )
+        .catch(() => {});
   }
   if (response.status >= 400 && response.status < 500 && uploaded) {
-    const { default: mongoose } = await import('mongoose');
+    const { default: mongoose } = await import("mongoose");
     const objectId = new mongoose.Types.ObjectId(uploaded.id);
-    await imageBucket().then(bucket => bucket.delete(objectId)).catch(() => {});
+    await imageBucket()
+      .then((bucket) => bucket.delete(objectId))
+      .catch(() => {});
   }
   const parsed = await result(response);
   return data(
@@ -150,7 +249,7 @@ export default function BusinessPage({
   actionData,
 }: Route.ComponentProps) {
   const navigation = useNavigation();
-  const [kind, setKind] = useState<BusinessKind>('AGRICULTURAL_SELLER');
+  const [kind, setKind] = useState<BusinessKind>("AGRICULTURAL_SELLER");
   const disabled =
     loaderData.preview || !loaderData.signedIn || navigation.state !== "idle";
   return (
@@ -161,12 +260,23 @@ export default function BusinessPage({
         </span>
         <h1>My businesses</h1>
         <p className="muted">
-          Bring your farm, transport, rental, or delivery business to OMYQUANT.
-          {' '}Business registration is optional. You can register more than one business and keep using your personal marketplace.
+          Bring your farm, transport, rental, or delivery business to OMYQUANT.{" "}
+          Business registration is optional. You can register more than one
+          business and keep using your personal marketplace.
         </p>
-        <Link className="button outline small" to="/">Return to personal marketplace</Link>
-        {' '}<Link className="button outline small" to="/work">My driver assignments</Link>
-        {!loaderData.preview && loaderData.signedIn && <Link className="button outline small" to="/support">Help and complaints</Link>}
+        {!loaderData.businesses.some(approvedBusiness) && (
+          <Link className="button outline small" to="/">
+            Return to personal marketplace
+          </Link>
+        )}{" "}
+        <Link className="button outline small" to="/work">
+          My driver assignments
+        </Link>
+        {!loaderData.preview && loaderData.signedIn && (
+          <Link className="button outline small" to="/support">
+            Help and complaints
+          </Link>
+        )}
         {loaderData.preview && (
           <p className="notice">
             Business tools are in preview. You can explore the forms; saving
@@ -202,22 +312,64 @@ export default function BusinessPage({
                   </p>
                 </div>
                 <span className="status-pill">
-                  {verificationStatus(b).replaceAll('_', ' ')}
+                  {verificationStatus(b).replaceAll("_", " ")}
                 </span>
-                {approvedBusiness(b) ? <Link className="button outline small" to={`/business/${b._id}/tools`}>Manage business</Link> : <p className="muted">{b.verification?.reason || 'Service tools become available after verification of an active business.'}</p>}
-                <Link className="text-button" to={`/business/${b._id}/profile`}>Business profile</Link>
+                {approvedBusiness(b) ? (
+                  <Link
+                    className="button outline small"
+                    to={`/business/${b._id}/tools`}
+                  >
+                    Manage business
+                  </Link>
+                ) : (
+                  <p className="muted">
+                    {b.verification?.reason ||
+                      "Service tools become available after verification of an active business."}
+                  </p>
+                )}
+                <Link className="text-button" to={`/business/${b._id}/profile`}>
+                  Business profile
+                </Link>
               </div>
             ))}
           </section>
         )}
-        <Form method="post" encType="multipart/form-data" className="form-panel">
+        <Form
+          method="post"
+          encType="multipart/form-data"
+          className="form-panel"
+        >
           <input type="hidden" name="intent" value="business" />
           <h2>
             <Icon name="store" /> Register your business
           </h2>
-          <label>Business type<select name="kind" value={kind} onChange={event => setKind(event.target.value as BusinessKind)}>{Object.entries(businessRegistry).map(([value, entry]) => <option key={value} value={value}>{entry.label}</option>)}</select></label>
-          <label>Verification documents<input type="file" name="verificationDocuments" multiple required accept="application/pdf,image/png,image/jpeg,image/webp" />
-            <span className="muted">{businessRegistry[kind].documents}. Up to five files, 5 MiB each. Documents are private and available to reviewers.</span>
+          <label>
+            Business type
+            <select
+              name="kind"
+              value={kind}
+              onChange={(event) => setKind(event.target.value as BusinessKind)}
+            >
+              {Object.entries(businessRegistry).map(([value, entry]) => (
+                <option key={value} value={value}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Verification documents
+            <input
+              type="file"
+              name="verificationDocuments"
+              multiple
+              required
+              accept="application/pdf,image/png,image/jpeg,image/webp"
+            />
+            <span className="muted">
+              {businessRegistry[kind].documents}. Up to five files, 5 MiB each.
+              Documents are private and available to reviewers.
+            </span>
           </label>
           <label>
             Business name
@@ -270,8 +422,14 @@ export default function BusinessPage({
           </button>
         </Form>
         {(loaderData.preview ||
-          loaderData.businesses.some((b) => b.active && b.verified && b.types.includes("farm"))) && (
-          <Form method="post" encType="multipart/form-data" className="form-panel">
+          loaderData.businesses.some(
+            (b) => b.active && b.verified && b.types.includes("farm"),
+          )) && (
+          <Form
+            method="post"
+            encType="multipart/form-data"
+            className="form-panel"
+          >
             <input type="hidden" name="intent" value="product" />
             <h2>Share your next harvest</h2>
             <p className="muted">
@@ -285,7 +443,9 @@ export default function BusinessPage({
                   <option value="">Select your farm business</option>
                 ) : (
                   loaderData.businesses
-                    .filter((b) => b.active && b.verified && b.types.includes("farm"))
+                    .filter(
+                      (b) => b.active && b.verified && b.types.includes("farm"),
+                    )
                     .map((b) => (
                       <option value={b._id} key={b._id}>
                         {b.name}
@@ -359,8 +519,14 @@ export default function BusinessPage({
             </div>
             <label>
               Product image (optional)
-              <input type="file" name="imageFile" accept="image/png,image/jpeg,image/gif,image/webp" />
-              <span className="muted">PNG, JPEG, GIF or WebP, up to 5 MiB.</span>
+              <input
+                type="file"
+                name="imageFile"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+              />
+              <span className="muted">
+                PNG, JPEG, GIF or WebP, up to 5 MiB.
+              </span>
             </label>
             <label>
               Listing status

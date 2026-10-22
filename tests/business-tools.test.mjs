@@ -2,7 +2,7 @@ import { afterEach, expect, jest, test } from '@jest/globals';
 import mongoose from 'mongoose';
 import * as db from '../app/.server/database/models.ts';
 import { manage } from '../app/.server/shared/access.ts';
-import { businessTool, toolMutation, toolsPage } from '../app/.server/modules/business-tools.ts';
+import { businessTool, toolMutation, toolsPage, businessStatistics } from '../app/.server/modules/business-tools.ts';
 import { placeOrder } from '../app/.server/modules/inventory.ts';
 import { handleApi } from '../app/.server/api.ts';
 import { sessionCookie } from '../app/.server/modules/auth/auth.ts';
@@ -10,6 +10,51 @@ import { sessionCookie } from '../app/.server/modules/auth/auth.ts';
 afterEach(() => jest.restoreAllMocks());
 const actor = { id: 'a'.repeat(24), admin: false };
 const business = 'b'.repeat(24);
+test('taxi overview statistics count only the selected business and use current booking/trip states', async () => {
+  const vehicles = jest.spyOn(db.Vehicle, 'countDocuments').mockResolvedValue(4);
+  const drivers = jest.spyOn(db.Driver, 'countDocuments').mockResolvedValue(3);
+  const bookings = jest.spyOn(db.Booking, 'countDocuments').mockResolvedValue(7);
+  const departures = jest.spyOn(db.Departure, 'countDocuments').mockResolvedValue(2);
+  const fares = jest.spyOn(db.Booking, 'aggregate').mockResolvedValueOnce([{ value: 90000 }]).mockResolvedValueOnce([{ value: 45000 }]);
+  const statistics = await businessStatistics(business, ['vehicles', 'drivers', 'bookings', 'departures']);
+  expect(statistics.slice(0, 4).map(item => item.count)).toEqual([4, 3, 7, 2]);
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Trips completed', count: 2 }));
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Completed trip booking value', count: 90000, format: 'money' }));
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Cancelled booking value', count: 45000 }));
+  expect(fares.mock.calls[0][0][0]).toEqual({ $match: { business: new mongoose.Types.ObjectId(business), status: 'confirmed' } });
+  expect(fares.mock.calls[0][0]).toContainEqual({ $match: { 'trip.business': new mongoose.Types.ObjectId(business), 'trip.status': 'completed' } });
+  expect(vehicles).toHaveBeenCalledWith({ business });
+  expect(drivers).toHaveBeenCalledWith({ business });
+  expect(bookings).toHaveBeenCalledWith({ business, status: 'confirmed' });
+  expect(departures).toHaveBeenCalledWith({ business, status: 'scheduled', startsAt: { $gt: expect.any(Date) } });
+});
+
+test('farm performance separates fulfilled, delivered and cancelled values and scopes every aggregate to the business', async () => {
+  jest.spyOn(db.Order, 'countDocuments').mockResolvedValue(3);
+  const aggregate = jest.spyOn(db.Order, 'aggregate').mockResolvedValueOnce([{ value: 12 }]).mockResolvedValueOnce([{ value: 8 }]).mockResolvedValueOnce([{ value: 50000 }]).mockResolvedValueOnce([{ value: 10000 }]);
+  const statistics = await businessStatistics(business, ['orders']);
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Product units fulfilled', count: 12 }));
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Product units delivered', count: 8 }));
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Fulfilled order value', count: 50000, format: 'money' }));
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Cancelled order value', count: 10000 }));
+  for (const [pipeline] of aggregate.mock.calls) expect(pipeline[0].$match.business).toEqual(new mongoose.Types.ObjectId(business));
+  expect(aggregate.mock.calls[1][0]).toContainEqual({ $match: { 'delivery.status': 'delivered', $expr: { $eq: ['$delivery.order', '$_id'] } } });
+});
+
+test('rental and delivery performance distinguishes completed value and business-reported payments', async () => {
+  jest.spyOn(db.Reservation, 'countDocuments').mockResolvedValue(2);
+  jest.spyOn(db.Delivery, 'countDocuments').mockResolvedValue(4);
+  const rentals = jest.spyOn(db.Reservation, 'aggregate').mockResolvedValueOnce([{ value: 60000 }]).mockResolvedValueOnce([{ value: 20000 }]).mockResolvedValueOnce([]);
+  const quotes = jest.spyOn(db.Quote, 'aggregate').mockResolvedValue([{ value: 80000 }]);
+  const statistics = await businessStatistics(business, ['reservations', 'deliveries']);
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Rentals completed', count: 2 }));
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Rental payments reported', count: 20000 }));
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Cancelled rental value', count: 0 }));
+  expect(statistics).toContainEqual(expect.objectContaining({ label: 'Completed delivery quote value', count: 80000 }));
+  expect(rentals.mock.calls[1][0][0].$match['externalPayment.verification']).toBe('business_reported');
+  expect(quotes.mock.calls[0][0]).toContainEqual({ $match: { 'delivery.business': new mongoose.Types.ObjectId(business), 'delivery.status': 'delivered' } });
+  expect(statistics.some(item => /profit|loss/i.test(item.label ?? ''))).toBe(false);
+});
 function company({ verified = true, types = ['farm'], member = true } = {}) {
   jest.spyOn(db.Business, 'findOne').mockResolvedValue({ _id: business, active: true, verified, types });
   jest.spyOn(db.Membership, 'exists').mockResolvedValue(member ? { _id: 'membership' } : null);

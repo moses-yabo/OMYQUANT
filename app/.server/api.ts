@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { businessWorkspaces } from './modules/business-workspaces';
 import { rentalUnits } from '../lib/rental-pricing';
 import { myAssignments, updateMyAssignment } from './modules/assignments';
 import { businessRegistry, businessPermissions, approvedBusinessFilter, hasBusinessPermission } from '../lib/business-registry';
@@ -218,6 +219,7 @@ export async function handleApi(request: Request, path: string) {
       }
     }
     const actor = await authenticate(request);
+    if (path === 'business-workspaces' && method === 'GET') return json(await businessWorkspaces(actor.id));
     if (path === 'enquiries' && method === 'GET') return list(db.BusinessEnquiry, { customer: actor.id }, url);
     if (path === 'farming/enquiries' && method === 'GET') {
       const business = id.parse(url.searchParams.get('business'));

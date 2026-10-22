@@ -1,5 +1,11 @@
 # Optional businesses under one account
 
+## Business workspace navigation update
+
+The overview includes all-time completed trips, fulfilled orders, product quantities on linked delivered jobs, trailer rentals started/returned, and completed delivery jobs. Financial cards show completed transaction/accepted quote values in ZAR, business-reported rental payments, and cancelled values separately. Product quantity metrics exclude livestock and collections from delivered counts; units still vary by listing. Confirmed taxi seats count toward completed trip value only when their departure is completed. Delivery quote totals include only accepted quotes on the selected provider's delivered jobs. Profit/loss is explicitly unavailable because complete income receipts, expenses and refunds are not recorded. Cancelled transaction value is not treated as an actual loss. Every metric is scoped to the selected business and its permitted service tools.
+
+Approved non-admin business accounts now use the business workspace as their frontend. Sign-in opens the business landing flow; customer-page visits redirect to the first accessible approved business. My businesses and the selector allow switching to other approved businesses. Business overview displays business-scoped statistics, with service management in the workspace navigation. Customer promotions, shopping links and activity links are omitted from that workspace. Accounts without an approved accessible business retain the customer experience; platform admin/super admin routing remains separate. Customer API permissions and historical transactions are unchanged. This updates the earlier personal-marketplace switching experience described below.
+
 Business registration is optional. Authentication, server sessions, customer orders, bookings and trailer reservations are unchanged. Business ownership never changes User.admin or User.superAdmin. A user can own or join multiple businesses and continue shopping personally.
 
 ## Registration and switching

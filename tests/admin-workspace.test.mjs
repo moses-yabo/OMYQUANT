@@ -18,7 +18,11 @@ beforeEach(() => {
   jest.spyOn(db.User, 'findById').mockImplementation(async () => user);
   jest.spyOn(db.User, 'countDocuments').mockResolvedValue(2);
   jest.spyOn(db.Business, 'countDocuments').mockResolvedValue(3);
+  for (const model of [db.Product, db.Livestock, db.Order, db.BusinessEnquiry, db.Vehicle, db.Driver, db.Route, db.Departure, db.Booking]) jest.spyOn(model, 'countDocuments').mockResolvedValue(0);
+  for (const model of [db.Order, db.Booking, db.Reservation, db.Quote]) jest.spyOn(model, 'aggregate').mockResolvedValue([]);
   jest.spyOn(db.Business, 'distinct').mockResolvedValue([]);
+  jest.spyOn(db.Membership, 'find').mockReturnValue({ select() { return this; }, lean: async () => [] });
+  jest.spyOn(db.Business, 'find').mockReturnValue({ select() { return this; }, lean: async () => [] });
   const query = () => ({ sort() { return this; }, skip() { return this; }, limit() { return this; }, populate() { return this; }, lean: async () => [] });
   for (const model of [db.BusinessReview, db.Product, db.Livestock, db.Trailer, db.Departure]) jest.spyOn(model, 'find').mockImplementation(query);
 });
@@ -30,10 +34,56 @@ afterEach(() => {
 });
 async function request(path) { return new Request(`https://example.test${path}`, { headers: { Cookie: await sessionCookie.serialize('1'.repeat(64)) } }); }
 
+test('approved taxi operators land in their business dashboard after sign-in', async () => {
+  user.admin = false; user.superAdmin = false;
+  const business = 'b'.repeat(24);
+  db.Membership.find.mockReturnValue({ select() { return this; }, lean: async () => [{ business, role: 'owner' }] });
+  db.Business.find.mockReturnValue({ select() { return this; }, lean: async () => [{ _id: business, name: 'Taxi operator', types: ['taxi_operator'] }] });
+  const response = await handle(await request('/business?welcome=1'));
+  expect(response.status).toBe(302);
+  expect(response.headers.get('Location')).toBe(`/business/${business}/tools`);
+});
+
+test('approved business users opening customer pages are routed to their business overview', async () => {
+  user.admin = false; user.superAdmin = false;
+  const business = 'b'.repeat(24);
+  db.Membership.find.mockReturnValue({ select() { return this; }, lean: async () => [{ business, role: 'owner' }] });
+  db.Business.find.mockReturnValue({ select() { return this; }, lean: async () => [{ _id: business, name: 'Taxi operator', types: ['taxi_operator'] }] });
+  const response = await handle(await request('/'));
+  expect(response.status).toBe(302);
+  expect(response.headers.get('Location')).toBe(`/business/${business}/tools`);
+});
+
+test('customers without an approved business keep the normal account landing', async () => {
+  user.admin = false; user.superAdmin = false;
+  const response = await handle(await request('/business?welcome=1'));
+  expect(response.status).toBe(302);
+  expect(response.headers.get('Location')).toBe('/account');
+});
+
+test('taxi driver management uses business navigation and exposes the add-driver form', async () => {
+  user.admin = false; user.superAdmin = false;
+  const business = 'b'.repeat(24);
+  jest.spyOn(db.Business, 'findOne').mockResolvedValue({ _id: business, name: 'Taxi operator', active: true, verified: true, types: ['taxi_operator'] });
+  jest.spyOn(db.Membership, 'exists').mockResolvedValue({});
+  jest.spyOn(db.Membership, 'findOne').mockResolvedValue({ role: 'owner' });
+  jest.spyOn(db.Membership, 'distinct').mockResolvedValue([business]);
+  db.Business.find.mockReturnValue({ select() { return this; }, lean: async () => [{ _id: business, name: 'Taxi operator' }] });
+  jest.spyOn(db.Driver, 'find').mockReturnValue({ select() { return this; }, sort() { return this; }, skip() { return this; }, limit() { return this; }, lean: async () => [] });
+  jest.spyOn(db.Driver, 'countDocuments').mockResolvedValue(0);
+  const response = await handle(await request(`/business/${business}/tools?tool=drivers`));
+  expect(response.status).toBe(200);
+  const html = await response.text();
+  for (const text of ['Business management', 'Taxi drivers', 'Vehicles', 'Taxi routes', 'Scheduled departures', 'Seat bookings', 'Existing driver account ID', 'Business overview']) expect(html).toContain(text);
+  expect(html.replace(/<!--.*?-->/g, '')).toMatch(/Add\s+driver/);
+  expect(html).not.toContain('YOUR EVERYDAY, CONNECTED');
+  expect(html).not.toContain('Become a partner');
+});
+
 test('customer business registration is optional and includes distinct types and private verification uploads', async () => {
   user.admin = false; user.superAdmin = false;
   jest.spyOn(db.Membership, 'distinct').mockResolvedValue([]);
-  jest.spyOn(db.Business, 'find').mockReturnValue({ sort() { return this; }, skip() { return this; }, limit() { return this; }, lean: async () => [] });
+  jest.spyOn(db.Business, 'find').mockReturnValue({ select() { return this; }, sort() { return this; }, skip() { return this; }, limit() { return this; }, lean: async () => [] });
   const response = await handle(await request('/business'));
   expect(response.status).toBe(200);
   const html = await response.text();
@@ -41,8 +91,9 @@ test('customer business registration is optional and includes distinct types and
   expect(html).not.toContain('Manage administrators');
 });
 
-test('business dashboards include a membership-scoped selector and return to the personal marketplace', async () => {
+test('business dashboards include a membership-scoped selector and business statistics', async () => {
   user.admin = false; user.superAdmin = false;
+  db.Order.aggregate.mockResolvedValue([{ value: 12500 }]);
   const business = 'b'.repeat(24);
   jest.spyOn(db.Business, 'findOne').mockResolvedValue({ _id: business, name: 'Approved farm', active: true, verified: true, types: ['farm'] });
   jest.spyOn(db.Membership, 'exists').mockResolvedValue({});
@@ -55,7 +106,11 @@ test('business dashboards include a membership-scoped selector and return to the
   expect(response.status).toBe(200);
   const html = await response.text();
   expect(html).toContain('Switch business');
-  expect(html).toContain('Personal marketplace');
+  expect(html).toContain('Business statistics');
+  expect(html).toContain('Fulfilled order value');
+  expect(html).toMatch(/R\s*125/);
+  expect(html).toContain('Profit / loss: unavailable');
+  expect(html).not.toContain('Personal marketplace');
   expect(html).toContain('Customer enquiries');
   expect(html).not.toContain('Add product');
   expect(html).not.toContain('Scheduled departures');

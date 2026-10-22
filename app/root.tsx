@@ -13,6 +13,7 @@ import "./app.css";
 import { api, result } from "./.server/frontend";
 import { demoEnabled } from "./.server/demo-mode";
 import { sessionToken } from './.server/modules/auth/auth';
+import type { Tool } from './.server/modules/business-tools';
 
 export async function loader({ request }: Route.LoaderArgs) {
   if (demoEnabled()) return { user: null, demo: true };
@@ -23,7 +24,16 @@ export async function loader({ request }: Route.LoaderArgs) {
   const payload = await result<{ id: string; name: string; admin?: boolean; superAdmin?: boolean }>(response);
   const pathname = new URL(request.url).pathname;
   if (response.ok && payload.data?.superAdmin && pathname !== '/admin' && !pathname.startsWith('/admin/')) throw redirect('/admin');
+  let workspaces: { id: string; name: string; tools: Tool[] }[] = [];
+  if (response.ok && payload.data && !payload.data.admin && !payload.data.superAdmin) {
+    const access = await api(request, 'business-workspaces');
+    if (!access.ok) throw new Response('Unable to verify business access', { status: access.status });
+    workspaces = (await result<typeof workspaces>(access)).data ?? [];
+    const businessPage = pathname === '/business' || pathname.startsWith('/business/') || pathname === '/work' || pathname === '/support' || pathname.startsWith('/support/');
+    if (workspaces.length && !businessPage) throw redirect(`/business/${workspaces[0].id}/tools`);
+  }
   return {
+    workspaces,
     user: response.ok ? (payload.data ?? null) : null,
     demo: demoEnabled(),
   };

@@ -65,7 +65,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       { status: response.status },
     );
   if (params.mode === "register") return redirect("/login?registered=1");
-  return redirect("/account", {
+  return redirect("/business?welcome=1", {
     headers: {
       "Set-Cookie": response.headers.get("Set-Cookie")!,
       "Cache-Control": "no-store",

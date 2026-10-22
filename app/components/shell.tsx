@@ -15,7 +15,9 @@ import { NotificationSettings } from "./notification-settings";
 import { SupportChat } from './support-chat';
 import { SupportActivityNotice } from './support-live-updates';
 import "./admin-navigation.css";
-export function Shell({ children }: { children: React.ReactNode }) {
+import { businessToolLabels } from '../lib/business-tools';
+type Workspace = { business: { _id: string; name: string }; available: (keyof typeof businessToolLabels)[] };
+export function Shell({ children, workspace }: { children: React.ReactNode; workspace?: Workspace }) {
   const [search] = useSearchParams();
   const current = search.get("section") ?? "all";
   const location = useLocation();
@@ -28,7 +30,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
       superAdmin?: boolean;
     } | null;
     demo?: boolean;
+    workspaces?: { id: string; name: string; tools: (keyof typeof businessToolLabels)[] }[];
   }>("root");
+  const selectedWorkspace = root?.workspaces?.find(item => location.pathname.startsWith(`/business/${item.id}/`)) ?? root?.workspaces?.[0];
+  workspace ??= selectedWorkspace ? { business: { _id: selectedWorkspace.id, name: selectedWorkspace.name }, available: selectedWorkspace.tools } : undefined;
   const [connected, setConnected] = useState(false);
   const { revalidate } = useRevalidator();
   const refreshRef = useRef(revalidate);
@@ -126,6 +131,30 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
+  if (workspace) return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <Link className="brand" to={`/business/${workspace.business._id}/tools`}><span className="brand-mark"><Icon name="store" size={24} /></span>OMYQUANT<span className="brand-dot">.</span></Link>
+        <div className="nav-label">BUSINESS WORKSPACE</div>
+        <nav aria-label="Business management">
+          <Link className={`nav-item ${!search.has('tool') ? 'selected' : ''}`} to={`/business/${workspace.business._id}/tools`}>Business overview</Link>
+          {workspace.available.map(tool => <Link key={tool} className={`nav-item ${search.get('tool') === tool ? 'selected' : ''}`} to={`/business/${workspace.business._id}/tools?tool=${tool}`}>{businessToolLabels[tool]}</Link>)}
+          <Link className="nav-item" to={`/business/${workspace.business._id}/profile`}>Business profile and team</Link>
+          <Link className="nav-item" to="/business?view=all">My businesses</Link>
+          <Link className="nav-item" to="/business?register=1">Register another business</Link>
+          <Link className="nav-item" to="/work">My driver assignments</Link>
+          <Link className="nav-item" to="/support">Help and complaints</Link>
+        </nav>
+      </aside>
+      <div className="app-main">
+        <header className="topbar"><span className="topbar-label">{workspace.business.name}</span><div className="topbar-actions"><Link className="button outline small" to="/business?view=all">Switch business</Link><Form method="post" action="/account"><input type="hidden" name="intent" value="logout" /><button className="button outline small">Sign out</button></Form></div></header>
+        {navigation.state !== 'idle' && <div className="navigation-progress" role="progressbar" aria-label="Loading page" />}
+        <main id="main-content">{children}</main>
+        <footer className="footer"><span>OMYQUANT</span><span>Business management workspace</span></footer>
+      </div>
+      {!isAdmin && <SupportChat accountId={root?.user?._id ?? root?.user?.id} />}
+    </div>
+  );
   return (
     <div className="app-shell">
       <aside className="sidebar">

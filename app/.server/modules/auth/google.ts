@@ -161,7 +161,7 @@ export async function completeGoogle(request: Request) {
     await googleCookie().serialize("", { maxAge: 0 }),
   );
   // Fixed existing destination; no browser-provided redirect can become an open redirect.
-  return redirect("/account", { status: 303, headers });
+  return redirect(transaction.intent === 'link' ? '/account' : '/business?welcome=1', { status: 303, headers });
 }
 
 export async function googleFailure(error: unknown) {
