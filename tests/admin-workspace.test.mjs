@@ -34,6 +34,20 @@ afterEach(() => {
 });
 async function request(path) { return new Request(`https://example.test${path}`, { headers: { Cookie: await sessionCookie.serialize('1'.repeat(64)) } }); }
 
+test.each([true, false])('both admin roles render the Leaflet map shell without browser globals during SSR: %s', async superAdmin => {
+  user.superAdmin = superAdmin;
+  db.Business.find.mockReturnValue({ select() { return this; }, sort() { return this; }, limit() { return this; }, lean: async () => [{ _id: 'b'.repeat(24), name: 'Registered taxi operator', types: ['taxi_operator'], active: true, verified: true, locations: [{ address: 'Test street', province: 'Gauteng' }] }] });
+  const response = await handle(await request('/admin/map'));
+  expect(response.status).toBe(200);
+  const html = await response.text();
+  expect(html).toContain('Interactive business locations map');
+  expect(html).toContain('Registered taxi operator');
+  expect(html).toContain('Needs coordinates');
+  expect(html).toContain('Search businesses');
+  expect(html).toContain('Business map');
+  expect(html).not.toContain('GEOAPIFY_API_KEY');
+});
+
 test('approved taxi operators land in their business dashboard after sign-in', async () => {
   user.admin = false; user.superAdmin = false;
   const business = 'b'.repeat(24);
@@ -107,6 +121,7 @@ test('business dashboards include a membership-scoped selector and business stat
   const html = await response.text();
   expect(html).toContain('Switch business');
   expect(html).toContain('Business statistics');
+  expect(html).toContain('aria-label="Color theme"');
   expect(html).toContain('Fulfilled order value');
   expect(html).toMatch(/R\s*125/);
   expect(html).toContain('Profit / loss: unavailable');
@@ -121,6 +136,7 @@ test('super administrators receive administration content without customer promo
   expect(response.status).toBe(200);
   const html = await response.text();
   expect(html).toContain('Your administration workspace.');
+  expect(html).toContain('aria-label="Color theme"');
   expect(html).toContain('Manage administrators');
   expect(html).toContain('Verify businesses');
   expect(html).toContain('Recent business decisions');

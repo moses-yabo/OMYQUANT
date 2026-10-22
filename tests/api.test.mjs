@@ -35,6 +35,7 @@ test('cross-site requests cannot mutate authenticated resources', async () => {
   for (const path of ['/login', '/register', '/business', '/request/delivery', '/request/transport']) {
     const response = await handle(new Request(`http://localhost${path}`));
     assert.equal(response.status, 200, path);
+    assert.match(await response.text(), /aria-label="Color theme"/);
   }
 });
 test('browser account activity loads its client authentication boundary', async () => {

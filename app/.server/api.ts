@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import { businessMapData, setBusinessPin, geocodeBusinessLocation, confirmBusinessAddress } from './modules/business-map';
+import { autoGeocodeLocation } from './modules/geocoding';
 import { businessWorkspaces } from './modules/business-workspaces';
 import { rentalUnits } from '../lib/rental-pricing';
 import { myAssignments, updateMyAssignment } from './modules/assignments';
@@ -219,6 +221,12 @@ export async function handleApi(request: Request, path: string) {
       }
     }
     const actor = await authenticate(request);
+    if (path === 'admin/business-map' && method === 'GET') return json(await businessMapData(actor));
+    const pinMatch = path.match(/^admin\/businesses\/([a-f0-9]{24})\/location$/i);
+    if (pinMatch && method === 'PATCH') return json(await setBusinessPin(actor, pinMatch[1], await body(request)));
+    const geocodeMatch = path.match(/^admin\/businesses\/([a-f0-9]{24})\/geocode$/i);
+    if (geocodeMatch && method === 'POST') return json(await geocodeBusinessLocation(actor, geocodeMatch[1], await body(request)));
+    if (geocodeMatch && method === 'PATCH') return json(await confirmBusinessAddress(actor, geocodeMatch[1], await body(request)));
     if (path === 'business-workspaces' && method === 'GET') return json(await businessWorkspaces(actor.id));
     if (path === 'enquiries' && method === 'GET') return list(db.BusinessEnquiry, { customer: actor.id }, url);
     if (path === 'farming/enquiries' && method === 'GET') {
@@ -289,6 +297,15 @@ export async function handleApi(request: Request, path: string) {
         if (input.kind && input.types && !businessRegistry[input.kind].services.every(type => input.types!.includes(type))) throw new ApiError(400, 'Business type and services do not match');
         if (input.types && !input.kind && company.kind && !businessRegistry[company.kind as keyof typeof businessRegistry].services.every(type => input.types!.includes(type))) throw new ApiError(400, 'Update the business type to match its services');
         if (input.verificationDocuments) await validateBusinessDocuments(actor.id, input.verificationDocuments);
+        if (input.locations) {
+          input.locations.forEach((location, index) => {
+            const old = company.locations?.[index];
+            if (old?.address?.trim().toLowerCase() !== location.address.toLowerCase() || old?.province?.trim().toLowerCase() !== location.province.toLowerCase()) return;
+            const noPin = location.latitude === undefined && location.longitude === undefined;
+            if (noPin || (location.latitude === old.latitude && location.longitude === old.longitude)) Object.assign(location, { latitude: old.latitude, longitude: old.longitude, ...(old.geocoding ? { geocoding: old.geocoding } : {}) });
+          });
+          input.locations[0] = await autoGeocodeLocation(input.locations[0], actor.id);
+        }
         return json(
           await db.Business.findByIdAndUpdate(
             company._id,
@@ -357,6 +374,7 @@ export async function handleApi(request: Request, path: string) {
         const input = businessSchema.parse(await body(request));
         if (!input.verificationDocuments?.length || (input.kind && !businessRegistry[input.kind].services.every(type => input.types.includes(type)))) throw new ApiError(400, 'Select matching services and upload the required verification documents');
         await validateBusinessDocuments(actor.id, input.verificationDocuments ?? []);
+        input.locations[0] = await autoGeocodeLocation(input.locations[0], actor.id);
         const company = await mongoose.connection.transaction(
           async (session) => {
             const [company] = await db.Business.create([{ ...input, owner: actor.id, verified: false, verificationStatus: 'PENDING' }], { session });

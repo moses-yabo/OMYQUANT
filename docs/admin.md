@@ -41,3 +41,5 @@ Verification unlocks service tools and customer eligibility for an active busine
 Tests cover server role guards, anonymous redirects, API access denial, review validation and transactional audit writes with mocked persistence. Live transaction rollback and browser interactions still require integration verification.
 
 See [optional multi-business registration, lifecycle and scoped permissions](multi-business.md) for the expanded business workflow and compatibility rules.
+
+Both admin roles can use the [registered business map and physical-address geocoding](business-map.md). Configure the server-only GEOAPIFY_API_KEY to enable address lookup.

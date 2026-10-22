@@ -11,7 +11,7 @@ import { manage } from '../.server/shared/access';
 import { connectToDatabase } from '../.server/database/connect';
 import { ApiError } from '../.server/shared/http';
 
-type Business = { _id: string; name: string; description: string; types: string[]; verified: boolean; active: boolean; verificationStatus?: string; verification?: { reason?: string }; verificationDocuments?: { file: string; name: string }[]; logisticsProfile?: { serviceAreas: string[]; basePrice: number; perKmPrice: number; available: boolean }; contact: { email: string; phone: string }; locations: { address: string; province: string }[] };
+type Business = { _id: string; name: string; description: string; types: string[]; verified: boolean; active: boolean; verificationStatus?: string; verification?: { reason?: string }; verificationDocuments?: { file: string; name: string }[]; logisticsProfile?: { serviceAreas: string[]; basePrice: number; perKmPrice: number; available: boolean }; contact: { email: string; phone: string }; locations: { address: string; province: string; latitude?: number; longitude?: number }[] };
 type Member = { _id: string; user: string; role: string; permissions: string[] };
 export async function loader({ request, params }: Route.LoaderArgs) {
   const response = await api(request, `businesses/${params.id}`);
@@ -35,7 +35,13 @@ export async function action({ request, params }: Route.ActionArgs) {
     let path = `businesses/${params.id}`;
     let method = 'PATCH';
     let body: unknown;
-    if (intent === 'profile') body = { name: get('name'), description: get('description'), contact: { email: get('email'), phone: get('phone') }, locations: [{ address: get('address'), province: get('province') }] };
+    if (intent === 'profile') {
+      const currentResponse = await api(request, path);
+      const current = await result<Business>(currentResponse);
+      if (!currentResponse.ok || !current.data) throw new ApiError(currentResponse.status, 'Unable to load current business locations');
+      const additional = current.data.locations.slice(1).map(location => ({ address: location.address, province: location.province, ...(typeof location.latitude === 'number' ? { latitude: location.latitude } : {}), ...(typeof location.longitude === 'number' ? { longitude: location.longitude } : {}) }));
+      body = { name: get('name'), description: get('description'), contact: { email: get('email'), phone: get('phone') }, locations: [{ address: get('address'), province: get('province') }, ...additional] };
+    }
     else if (intent === 'availability') body = { active: get('active') === 'true' };
     else if (intent === 'logistics') body = { logisticsProfile: { serviceAreas: get('serviceAreas').split('\n').map(area => area.trim()).filter(Boolean), basePrice: Math.round(Number(get('basePrice')) * 100), perKmPrice: Math.round(Number(get('perKmPrice')) * 100), available: get('available') === 'true' } };
     else if (intent === 'documents') {
@@ -73,7 +79,7 @@ export default function BusinessProfile({ loaderData: loaded, actionData }: Rout
         <label>Description<textarea name="description" required defaultValue={business.description} /></label>
         <label>Contact email<input name="email" type="email" required defaultValue={business.contact?.email} /></label>
         <label>Contact phone<input name="phone" required defaultValue={business.contact?.phone} /></label>
-        <label>Address<input name="address" required defaultValue={business.locations?.[0]?.address} /></label>
+        <label>Physical address<input name="address" required defaultValue={business.locations?.[0]?.address} /><span className="muted">Use a full street address, suburb and town. Geoapify can convert it into an administration map location.</span></label>
         <label>Province<input name="province" required defaultValue={business.locations?.[0]?.province} /></label>
         <button className="button">Save profile</button>
       </fieldset>

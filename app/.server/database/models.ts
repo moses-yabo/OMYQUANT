@@ -12,6 +12,7 @@ const place = {
   province: String,
   latitude: Number,
   longitude: Number,
+  geocoding: { provider: String, label: String, precision: String, confidence: Number, reviewed: Boolean, locatedAt: Date },
 };
 const amount = { type: Number, min: 0, required: true };
 const make = (name: string, definition: Record<string, unknown>) =>
@@ -324,6 +325,7 @@ const businessReviewSchema = new Schema({ business: ref('Business'), reviewer: r
 businessReviewSchema.index({ business: 1, createdAt: -1 });
 export const BusinessReview = mongoose.models.BusinessReview ?? mongoose.model('BusinessReview', businessReviewSchema);
 export const AdminAccessReview = make('AdminAccessReview', { user: ref('User'), reviewer: ref('User'), admin: Boolean });
+export const BusinessLocationReview = make('BusinessLocationReview', { business: ref('Business'), reviewer: ref('User'), locationIndex: Number, previous: { latitude: Number, longitude: Number }, coordinates: { latitude: Number, longitude: Number } });
 
 const supportEventSchema = new Schema({
   author: ref('User'), text: { type: String, required: true, maxlength: 4000 },

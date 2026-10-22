@@ -19,6 +19,7 @@ export default [
   route('business/:id/tools', 'routes/business-tools.tsx'),
   route('business/:id/profile', 'routes/business-profile.tsx'),
   route('admin', 'routes/admin-index.tsx'),
+  route('admin/map', 'routes/admin-map.tsx'),
   route('admin/users', 'routes/admin-users.tsx'),
   route('admin/support/:id?', 'routes/admin-support.tsx'),
   route('admin/businesses/:id?', 'routes/admin-businesses.tsx'),

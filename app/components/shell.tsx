@@ -96,6 +96,7 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
               <Icon name="store" />
               Verify businesses
             </NavLink>
+            <NavLink className="nav-item" to="/admin/map"><Icon name="pin" />Business map</NavLink>
             {isSuperAdmin && <NavLink className="nav-item" to="/admin/users">
               <Icon name="user" />
               Manage administrators

@@ -31,3 +31,7 @@ The existing product form accepts a PNG/JPEG/GIF/WebP upload up to 5 MiB. Listin
 Run `npm run typecheck` and `npm test`. Tests cover resource routing, preview server rendering, frontend routes, unknown-route handling, and mutation origin checks. This session had no browser automation tool or configured MongoDB, so browser interactions, responsive screenshots and authenticated database workflows require follow-up validation.
 
 The client includes customer discovery, core requests, business onboarding and verified service tools for farming, livestock, trailer rentals and taxi scheduling. Admin business verification and super admin role-management screens are available. Logistics/charter quote forms and business staff management remain future UI work. Changes are saved locally and are not automatically published to hosting.
+
+## Color theme
+
+The shared header includes a Theme selector: System, Light or Dark. The default follows the device preference. An explicit choice is saved under omyquant:theme in this browser's localStorage and synced across tabs; storage restrictions still allow a temporary in-memory choice. A small head script applies the theme before page content paints. Customer, business, admin, authentication, support, dialogs and error screens share theme variables in app/styles/theme.css. Theme selection does not alter account roles or data. Photographs and brand assets keep their original colors.

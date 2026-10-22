@@ -4,8 +4,10 @@ import { Shell } from '../components/shell';
 import { verificationStatus, verificationStatuses } from '../lib/business-registry';
 import { requireAdminPage } from '../.server/admin-access';
 import { api, mutationOrigin, result } from '../.server/frontend';
+import { AdminMapPreview } from '../components/admin-map-preview';
+import { AddressLookup } from '../components/address-lookup';
 
-type Business = { verificationStatus?: string; verificationDocuments?: { file: string; name: string }[]; _id: string; name: string; description: string; types: string[]; verified: boolean; active: boolean; contact?: { email?: string; phone?: string }; locations?: { address?: string; province?: string }[] };
+type Business = { verificationStatus?: string; verificationDocuments?: { file: string; name: string }[]; _id: string; name: string; description: string; types: string[]; verified: boolean; active: boolean; contact?: { email?: string; phone?: string }; locations?: { address?: string; province?: string; latitude?: number; longitude?: number }[] };
 type Review = { status?: string; _id: string; verified: boolean; reason: string; createdAt: string; reviewer?: { name?: string } | null };
 export async function loader({ request, params }: Route.LoaderArgs) {
   await requireAdminPage(request);
@@ -27,6 +29,12 @@ export async function action({ request, params }: Route.ActionArgs) {
   await requireAdminPage(request);
   if (request.method !== 'POST' || !params.id || !/^[a-f0-9]{24}$/i.test(params.id)) throw new Response('Invalid review request.', { status: 400 });
   const form = await request.formData();
+  if (form.get('intent') === 'location') {
+    const response = await api(request, `admin/businesses/${params.id}/location`, 'PATCH', { index: Number(form.get('index')), latitude: form.get('latitude') === '' ? null : Number(form.get('latitude')), longitude: form.get('longitude') === '' ? null : Number(form.get('longitude')) });
+    const payload = await result(response);
+    if (!response.ok) return data({ error: payload.error?.message ?? 'Unable to save the location pin.' }, { status: response.status });
+    return redirect(`/admin/businesses/${params.id}?saved=1#business-location`);
+  }
   const decision = form.get('status');
   if (!verificationStatuses.includes(decision as typeof verificationStatuses[number])) return data({ error: 'Choose a valid verification decision.' }, { status: 400 });
   const response = await api(request, `businesses/${params.id}/verification`, 'PATCH', { status: decision, reason: String(form.get('reason') ?? '') });
@@ -53,6 +61,7 @@ export default function AdminBusinesses({ loaderData: loaded, actionData }: Rout
         <p>Services: {business.types.join(', ')}</p>
         <p>Contact: {business.contact?.email || 'Not provided'} · {business.contact?.phone || 'Not provided'}</p>
         {business.locations?.map((location, index) => <p key={index}>{location.address}, {location.province}</p>)}
+        <details id="business-location" open><summary>Find business locations from their addresses</summary><p className="muted">Address lookup fills the coordinates for you. It does not approve the business or prove ownership of the premises.</p>{business.locations?.map((location, index) => <section key={index}><h3>{location.address}, {location.province}</h3><AddressLookup business={business._id} index={index} /><p className="muted">Saved coordinates: {location.latitude ?? 'not set'}, {location.longitude ?? 'not set'}</p><details><summary>Set coordinates manually instead</summary><Form method="post"><input type="hidden" name="intent" value="location" /><input type="hidden" name="index" value={index} /><div className="form-grid"><label>Latitude<input name="latitude" type="number" min="-90" max="90" step="any" required defaultValue={location.latitude ?? ''} /></label><label>Longitude<input name="longitude" type="number" min="-180" max="180" step="any" required defaultValue={location.longitude ?? ''} /></label></div><button className="button outline small" disabled={navigation.state !== 'idle'}>Save location pin</button></Form></details></section>)}</details>
         {loaded.saved && <p role="status" className="notice">Verification decision saved.</p>}
         {actionData?.error && <p role="alert" className="notice error">{actionData.error}</p>}
         {business.verificationDocuments?.map(document => <p key={document.file}><a href={`/business/documents/${document.file}`}>Download {document.name}</a></p>)}
@@ -66,6 +75,7 @@ export default function AdminBusinesses({ loaderData: loaded, actionData }: Rout
         {loaded.reviews.map(review => <div className="activity-row" key={review._id}><div><strong>{review.status?.replaceAll('_', ' ') ?? (review.verified ? 'Verified' : 'Returned to pending')}</strong><p>{review.reason || 'No note provided.'}</p><small>{review.reviewer?.name ?? 'Administrator'} · {new Date(review.createdAt).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })}</small></div></div>)}
       </section>
     </> : <>
+      <AdminMapPreview />
       <Form method="get" className="form-panel"><div className="form-grid">
         <label>Verification status<select name="status" defaultValue={loaded.status}><option value="pending">Pending verification</option><option value="verified">Verified</option>{verificationStatuses.filter(status => !['PENDING', 'APPROVED'].includes(status)).map(status => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}<option value="all">All businesses</option></select></label>
         <label>Business name<input name="q" defaultValue={loaded.query} maxLength={100} /></label>

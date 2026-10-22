@@ -12,11 +12,12 @@ import { rentalUnits } from '../app/lib/rental-pricing.ts';
 
 const actor = { id: 'a'.repeat(24), admin: false };
 const business = 'b'.repeat(24);
-const saved = { uri: process.env.MONGODB_URI, origin: process.env.APP_ORIGIN, db: mongoose.connection.db };
+const saved = { uri: process.env.MONGODB_URI, origin: process.env.APP_ORIGIN, db: mongoose.connection.db, geocodingKey: process.env.GEOAPIFY_API_KEY };
 const chain = records => ({ sort() { return this; }, skip() { return this; }, limit() { return this; }, select() { return this; }, lean: async () => records });
 let cookie;
 beforeEach(async () => {
   process.env.MONGODB_URI = 'mongodb://unused-multi-business-test';
+  delete process.env.GEOAPIFY_API_KEY;
   delete process.env.APP_ORIGIN;
   jest.spyOn(mongoose, 'connect').mockResolvedValue(mongoose);
   jest.spyOn(db.Session, 'findOne').mockResolvedValue({ user: actor.id });
@@ -26,6 +27,7 @@ beforeEach(async () => {
 afterEach(() => {
   jest.restoreAllMocks();
   mongoose.connection.db = saved.db;
+  if (saved.geocodingKey === undefined) delete process.env.GEOAPIFY_API_KEY; else process.env.GEOAPIFY_API_KEY = saved.geocodingKey;
   for (const [key, value] of [['MONGODB_URI', saved.uri], ['APP_ORIGIN', saved.origin]]) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
 });
 async function call(path, method = 'GET', body) {

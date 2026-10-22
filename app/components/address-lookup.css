@@ -1,0 +1,3 @@
+.address-lookup { margin: 14px 0; padding: 16px; border: 1px solid var(--theme-border, #dce5cb); border-radius: 8px; background: var(--theme-field, #fafbf7); }
+.address-lookup > p { margin: 10px 0; line-height: 1.7; }
+.address-lookup > .business-map-note { font-size: 11px; color: var(--theme-muted, #697b54); }

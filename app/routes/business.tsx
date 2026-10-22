@@ -408,8 +408,8 @@ export default function BusinessPage({
               <input type="tel" name="phone" required autoComplete="tel" />
             </label>
             <label>
-              Operating address
-              <input name="address" required />
+              Physical operating address
+              <input name="address" required placeholder="Street number, street, suburb and town" /><span className="muted">Include a complete address. When configured, Geoapify converts it to a location for the administration map.</span>
             </label>
             <label>
               Province

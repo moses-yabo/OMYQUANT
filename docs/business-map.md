@@ -1,0 +1,23 @@
+# Administration business map
+
+Both admin roles can open **Business map** (`/admin/map`) from their administration navigation. The super admin overview and verification queue also link to it. The map uses Leaflet, loaded only in the browser, with OpenStreetMap tiles and visible attribution. Map/list filtering covers business name/address, verification/operational state, service and province. Matching coordinates share a marker, with separate review links in its popup. Unknown locations appear in the directory instead of receiving invented coordinates. The current view loads the newest 1,000 businesses and clearly reports truncation; use the normal review queue for older records.
+
+## Convert physical addresses into coordinates
+
+Configure the server-only `GEOAPIFY_API_KEY` in local `.env` or **Render → Environment**, then restart/redeploy. Never prefix it with `VITE_` or expose it to browser code. See the [Geoapify geocoding documentation](https://apidocs.geoapify.com/docs/geocoding/) for obtaining a key and account limits. No key is committed or automatically provisioned by this change.
+
+New business registration and primary-address updates perform a server-side address lookup when configured. The address and province are sent to Geoapify with a South Africa filter. A single building/amenity match with at least 90% provider confidence is saved automatically, with provenance marked as an automatic match. Confidence is a provider estimate, not independent verification. Ambiguous results, town/street matches, provider outages and missing configuration leave the location unpinned and do not block registration. An existing pin is retained for an unchanged address. Updating an address does not deliberately reuse a pin from its old address.
+
+For existing records or ambiguous addresses, open **Review / set pin → Find business locations from their addresses → Find this address on the map**. Check the suggested address and match level, then choose **Confirm this location**. Coordinates and geocoding provenance are stored in the business's MongoDB location. Town/street results are approximate and labelled by match level in the popup. A manually checked coordinate editor remains available as a fallback. Neither geocoding nor setting a pin approves the business or proves ownership of its premises.
+
+Only platform admins can run existing-business lookups and confirm/edit pins. Confirmation validates the selected result on the server and rejects stale addresses. Pin changes and reviewer audits commit in the same MongoDB transaction. The data endpoint is admin-only and returns business names, service/status and location fields, excluding account/contact information and verification documents. New registrations still require normal authentication, their own documents and independent business approval.
+
+Lookups are limited to 20 uncached attempts per account per 15 minutes. Results are cached in memory for 24 hours (empty results for 10 minutes), concurrent duplicate lookups are coalesced, and there are at most three active provider queries per process. These protections do not replace provider account quotas across multiple application instances. Provider requests time out after five seconds. Provider messages, request URLs and API keys are not returned in errors. Saved pins persist across restarts; the cache does not.
+
+## Hosting and privacy
+
+Geocoding sends physical business addresses to Geoapify. Map tiles are requested directly by the browser from OpenStreetMap; viewing them discloses the browser's IP/referrer and requested map area to that service. No Google/browser location permission or live vehicle tracking is used. Maps and address lookup are separate services: basemap viewing needs no Geoapify key, while address lookup does.
+
+Normal interactive tile use follows the [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/): HTTPS, visible attribution, normal browser caching/referrer, no bulk downloads or offline prefetch. Tile availability is external to this app. Choose another licensed tile provider if usage/hosting requirements exceed that service's policy. Neither Leaflet nor the geocoder guarantees address accuracy or delivery navigation.
+
+Verification covers admin permissions, coordinate validity, map filtering, SSR without browser globals, provider request/configuration/error handling, automatic-match thresholds, cached/rate-limited requests and transactional pin auditing. Live geocoding requires a configured key; Atlas transaction and browser/tile rendering checks remain deployment acceptance steps.

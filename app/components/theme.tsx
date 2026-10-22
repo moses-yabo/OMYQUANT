@@ -1,34 +1,16 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { resolvedTheme, themePreference, themeStorageKey, type ThemePreference } from '../lib/theme';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { connectTheme, themePreference, type ThemePreference } from '../lib/theme';
 
 const ThemeContext = createContext<{ preference: ThemePreference; choose: (value: ThemePreference) => void }>({ preference: 'system', choose: () => {} });
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPreference] = useState<ThemePreference>('system');
+  const controller = useRef<ReturnType<typeof connectTheme> | null>(null);
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    let current: ThemePreference = 'system';
-    try { current = themePreference(localStorage.getItem(themeStorageKey)); } catch { /* Theme still works when storage is unavailable. */ }
-    const apply = () => { document.documentElement.dataset.theme = resolvedTheme(current, media.matches); };
-    const sync = (event: StorageEvent) => {
-      if (event.key !== themeStorageKey && event.key !== null) return;
-      current = themePreference(event.newValue); setPreference(current); apply();
-    };
-    const change = (event: Event) => {
-      current = themePreference((event as CustomEvent).detail); setPreference(current); apply();
-    };
-    setPreference(current); apply();
-    media.addEventListener('change', apply);
-    window.addEventListener('storage', sync);
-    window.addEventListener('omyquant:theme', change);
-    return () => {
-      media.removeEventListener('change', apply);
-      window.removeEventListener('storage', sync);
-      window.removeEventListener('omyquant:theme', change);
-    };
+    controller.current = connectTheme(setPreference);
+    return () => { controller.current?.dispose(); controller.current = null; };
   }, []);
   function choose(value: ThemePreference) {
-    try { localStorage.setItem(themeStorageKey, value); } catch { /* Keep the in-memory choice. */ }
-    window.dispatchEvent(new CustomEvent('omyquant:theme', { detail: value }));
+    controller.current?.choose(value);
   }
   return <ThemeContext.Provider value={{ preference, choose }}>{children}</ThemeContext.Provider>;
 }
