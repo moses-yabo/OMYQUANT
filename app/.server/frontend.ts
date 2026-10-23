@@ -4,6 +4,7 @@ export async function api(
   path: string,
   method = "GET",
   payload?: unknown,
+  idempotencyKey?: string,
 ) {
   const headers = new Headers();
   for (const key of ["Cookie", "Origin", "Sec-Fetch-Site"]) {
@@ -11,6 +12,7 @@ export async function api(
     if (value) headers.set(key, value);
   }
   if (payload !== undefined) headers.set("Content-Type", "application/json");
+  if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   return handleApi(
     new Request(new URL(`/api/v1/${path}`, request.url), {
       method,

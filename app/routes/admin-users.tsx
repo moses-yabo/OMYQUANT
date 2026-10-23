@@ -1,4 +1,5 @@
-import { data, Form, useNavigation } from 'react-router';
+import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import { data, useNavigation } from "react-router";
 import type { Route } from './+types/admin-users';
 import { Shell } from '../components/shell';
 import { requireAdminPage } from '../.server/admin-access';
@@ -36,12 +37,12 @@ export default function AdminUsers({ loaderData, actionData }: Route.ComponentPr
   const account = loaderData.account;
   return <Shell><div className="form-page"><span className="eyebrow">SUPER ADMINISTRATION</span><h1>Manage administrators</h1>
     <p className="muted">Find an existing active account by its exact sign-in email. Regular administrators can review businesses.</p>
-    <Form method="get" className="form-panel"><label>Account email<input type="email" name="email" required defaultValue={loaderData.email} /></label><button className="button full" disabled={pending}>Find account</button></Form>
+    <Form method="get" className="form-panel"><label>Account email<input type="email" name="email" required defaultValue={loaderData.email} /></label><SubmissionButton className="button full" disabled={pending}>Find account</SubmissionButton></Form>
     {loaderData.error && <p className="notice error" role="alert">{loaderData.error}</p>}
     {actionData?.error && <p className="notice error" role="alert">{actionData.error}</p>}
     {actionData?.success && <p className="notice" role="status">{actionData.success}</p>}
     {account && <section className="form-panel"><h2>{account.name}</h2><p>{account.email}</p><p>{account.superAdmin ? 'Super administrator' : account.admin ? 'Administrator' : 'Customer'}</p>
-      {account.superAdmin ? <p className="muted">Super administrator access is protected and managed from the server terminal.</p> : <Form method="post"><input type="hidden" name="id" value={account._id} /><button className="button full" name="admin" value={account.admin ? 'false' : 'true'} disabled={pending}>{pending ? 'Saving…' : account.admin ? 'Revoke administrator access' : 'Grant administrator access'}</button></Form>}
+      {account.superAdmin ? <p className="muted">Super administrator access is protected and managed from the server terminal.</p> : <Form method="post"><input type="hidden" name="id" value={account._id} /><SubmissionButton className="button full" name="admin" value={account.admin ? 'false' : 'true'} disabled={pending}>{pending ? 'Saving…' : account.admin ? 'Revoke administrator access' : 'Grant administrator access'}</SubmissionButton></Form>}
     </section>}
   </div></Shell>;
 }

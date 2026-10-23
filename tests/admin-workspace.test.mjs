@@ -34,6 +34,20 @@ afterEach(() => {
 });
 async function request(path) { return new Request(`https://example.test${path}`, { headers: { Cookie: await sessionCookie.serialize('1'.repeat(64)) } }); }
 
+test('business registration renders its retry token and existing required fields during SSR', async () => {
+  user.admin = false; user.superAdmin = false;
+  jest.spyOn(db.Membership, 'distinct').mockResolvedValue([]);
+  db.Business.find.mockReturnValue({ select() { return this; }, sort() { return this; }, skip() { return this; }, limit() { return this; }, lean: async () => [] });
+  const response = await handle(await request('/business?register=1'));
+  expect(response.status).toBe(200);
+  const html = await response.text();
+  expect(html).toMatch(/name="submissionKey" value="[a-f0-9-]{36}"/);
+  expect(html).toContain('Register your business');
+  expect(html).toContain('name="verificationDocuments"');
+  expect(html).toContain('Create business');
+  expect(html).not.toContain('Business Registration Submitted');
+});
+
 test.each([true, false])('both admin roles render the Leaflet map shell without browser globals during SSR: %s', async superAdmin => {
   user.superAdmin = superAdmin;
   db.Business.find.mockReturnValue({ select() { return this; }, sort() { return this; }, limit() { return this; }, lean: async () => [{ _id: 'b'.repeat(24), name: 'Registered taxi operator', types: ['taxi_operator'], active: true, verified: true, locations: [{ address: 'Test street', province: 'Gauteng' }] }] });

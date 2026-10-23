@@ -1,4 +1,5 @@
-import { data, Form, Link, redirect, useNavigation } from "react-router";
+import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import { data, Link, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/support";
 import { Shell } from "../components/shell";
 import { api, configured, mutationOrigin, result } from "../.server/frontend";
@@ -249,7 +250,7 @@ export default function Support({
                   <p style={{ whiteSpace: "pre-wrap" }}>{event.text}</p>
                 </article>
               ))}
-              <Form key={`${ticket._id}:${ticket.version}`} method="post">
+              <Form key={ticket._id} method="post" resetOnSuccess>
                 <input type="hidden" name="version" value={ticket.version} />
                 {loaded.administrative && (
                   <div className="form-grid">
@@ -285,9 +286,9 @@ export default function Support({
                     required
                   />
                 </label>
-                <button className="button full" disabled={pending}>
+                <SubmissionButton className="button full" disabled={pending}>
                   {pending ? "Saving…" : "Save update"}
-                </button>
+                </SubmissionButton>
               </Form>
             </section>
           </>
@@ -321,12 +322,12 @@ export default function Support({
                   </select>
                 </label>
               </div>
-              <button
+              <SubmissionButton
                 className="button small"
                 disabled={loaded.preview || pending}
               >
                 Filter complaints
-              </button>
+              </SubmissionButton>
             </Form>
             <section className="form-panel">
               <h2>
@@ -433,12 +434,12 @@ export default function Support({
                   business. Do not include passwords, card details or other
                   private credentials.
                 </p>
-                <button
+                <SubmissionButton
                   className="button full"
                   disabled={loaded.preview || pending}
                 >
                   {pending ? "Submitting…" : "Submit complaint"}
-                </button>
+                </SubmissionButton>
               </Form>
             )}
           </>

@@ -1,0 +1,13 @@
+# Submission feedback
+
+Mutation forms use the shared `SubmissionForm`/`SubmissionButton` components. Successful action results produce a dismissible five-second green toast and scroll the page to the top, respecting reduced motion. Errors stay visible until dismissed; existing inline validation remains available. Only the submitting form shows `Submitting...` and a progress indicator. A synchronous guard rejects another navigation-form submission until the first completes. GET/search forms and the external Google OAuth document redirect retain their original behavior.
+
+New listings, operational records, seller enquiries, membership additions and document submissions opt into resetting native input/file selections after confirmed success. Business registration retains its explicit reset of the controlled business type and its server-side submission key. Profile edits, access decisions, assignments and status updates keep their values. Support replies preserve their draft across version refreshes on failure and clear only after success. Existing delivery/transport confirmation screens and order/booking/rental confirmation banners remain available.
+
+Fetcher-based orders/bookings/rentals and address lookup/confirmation share the toast and synchronous click guard. The toast renders inside an open native dialog so it remains visible above the dialog backdrop. Support chat reports success when the message write completes; a subsequent conversation refresh failure does not imply that sending failed. Chat stays in place instead of scrolling the whole page.
+
+Success is inferred only from explicit action contracts or recognized successful redirect destinations. Unknown outcomes never clear inputs or claim success. Toast content is rendered as text. No additional notification package, auth changes, role changes, payment workflows or backend inventory changes are introduced.
+
+Client guards prevent repeated interactions in this page; they do not establish exactly-once delivery across devices, independent requests or network retries. Business registration retains its MongoDB-backed idempotency key. Other server authorization, validation, concurrency and transactional safeguards remain unchanged; a generic automatic retry layer is deliberately not added to stock/seat/rental mutations.
+
+Run `npm run typecheck` and `npm test`. Unit and SSR checks cover result/error classification, recognized redirects, reduced motion and existing form rendering. Mobile, real browser focus/scroll behavior and live MongoDB concurrency require separate acceptance testing.

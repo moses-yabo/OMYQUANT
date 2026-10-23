@@ -1,4 +1,5 @@
-import { Form, Link, data, redirect, useNavigation } from "react-router";
+import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import { Link, data, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/account";
 import { Shell } from "../components/shell";
 import { Icon } from "../components/icon";
@@ -152,9 +153,9 @@ export default function Account({
           <>
             {<Form method="post">
               <input type="hidden" name="local" value={String(loaderData.demo)}/>
-              <button className="text-button" name="intent" value="logout">
+              <SubmissionButton className="text-button" name="intent" value="logout">
                 Sign out
-              </button>
+              </SubmissionButton>
             </Form>}
             {actionData?.error && (
               <p role="alert" className="notice error">
@@ -198,7 +199,7 @@ export default function Account({
                       {!loaderData.demo && <Link className="text-button" to={`/support?${new URLSearchParams({ kind: group.kind === 'orders' ? 'order' : group.kind === 'bookings' ? 'booking' : group.kind === 'reservations' ? 'reservation' : group.kind === 'deliveries' ? 'delivery' : 'transport', reference: item._id })}`}>Report a problem</Link>}
                       {item.start && <p className="muted">Collection: {new Date(item.start).toLocaleDateString('en-ZA', { timeZone: 'Africa/Johannesburg' })}</p>}
                       {group.kind === 'bookings' && 'startsAt' in item && item.startsAt && <p className="muted">Departure: {new Date(item.startsAt).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })} (South African time)</p>}
-                      {loaderData.demo && group.kind === 'reservations' && ['requested', 'confirmed', 'picked_up'].includes(item.status) && <Form method="post"><input type="hidden" name="demo" value="true"/><input type="hidden" name="intent" value="demo-status"/><input type="hidden" name="id" value={item._id}/><button className="button outline small" name="status" value={item.status === 'requested' ? 'confirmed' : item.status === 'confirmed' ? 'picked_up' : 'returned'} disabled={navigation.state !== 'idle'}>{item.status === 'requested' ? 'Simulate business approval' : item.status === 'confirmed' ? 'Simulate pickup' : 'Simulate return'}</button>{item.status === 'requested' && <button className="text-button" name="status" value="rejected" disabled={navigation.state !== 'idle'}>Simulate rejection</button>}</Form>}
+                      {loaderData.demo && group.kind === 'reservations' && ['requested', 'confirmed', 'picked_up'].includes(item.status) && <Form method="post"><input type="hidden" name="demo" value="true"/><input type="hidden" name="intent" value="demo-status"/><input type="hidden" name="id" value={item._id}/><SubmissionButton className="button outline small" name="status" value={item.status === 'requested' ? 'confirmed' : item.status === 'confirmed' ? 'picked_up' : 'returned'} disabled={navigation.state !== 'idle'}>{item.status === 'requested' ? 'Simulate business approval' : item.status === 'confirmed' ? 'Simulate pickup' : 'Simulate return'}</SubmissionButton>{item.status === 'requested' && <SubmissionButton className="text-button" name="status" value="rejected" disabled={navigation.state !== 'idle'}>Simulate rejection</SubmissionButton>}</Form>}
                       {["orders", "bookings", "reservations"].includes(
                         group.kind,
                       ) &&
@@ -216,14 +217,14 @@ export default function Account({
                               value={group.kind}
                             />
                             <input type="hidden" name="id" value={item._id} />
-                            <button
+                            <SubmissionButton
                               name="intent"
                               value="cancel"
                               className="text-button"
                               disabled={navigation.state !== "idle"}
                             >
                               Cancel
-                            </button>
+                            </SubmissionButton>
                           </Form>
                         )}
                     </div>

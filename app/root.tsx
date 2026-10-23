@@ -12,6 +12,7 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { ThemeProvider, ThemeToggle } from './components/theme';
 import { themeBootstrap } from './lib/theme';
+import { SubmissionFeedbackProvider } from './components/submission-feedback';
 import { api, result } from "./.server/frontend";
 import { demoEnabled } from "./.server/demo-mode";
 import { sessionToken } from './.server/modules/auth/auth';
@@ -91,7 +92,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return <SubmissionFeedbackProvider><Outlet /></SubmissionFeedbackProvider>;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

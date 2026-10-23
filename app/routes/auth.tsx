@@ -1,4 +1,5 @@
-import { Form, Link, data, redirect, useNavigation } from "react-router";
+import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import { Link, data, redirect, useNavigation } from "react-router";
 import { useState } from 'react';
 import '../components/google-button.css';
 import type { Route } from "./+types/auth";
@@ -123,10 +124,10 @@ export default function Auth({ params, actionData, loaderData }: Route.Component
           <Form method="post" action="/auth/google" reloadDocument onSubmit={() => setGooglePending(true)}>
             <input type="hidden" name="intent" value={loaderData.canLink ? 'link' : 'login'} />
             {loaderData.canLink && <label>Confirm your existing password to link Google<input name="password" type="password" autoComplete="current-password" required minLength={12} maxLength={128} /></label>}
-            <button type="submit" className="button full google-auth-button" disabled={!loaderData.google.enabled || googlePending} aria-busy={googlePending} aria-describedby={!loaderData.google.enabled ? 'google-unavailable' : undefined}>
+            <SubmissionButton type="submit" className="button full google-auth-button" disabled={!loaderData.google.enabled || googlePending} aria-busy={googlePending} aria-describedby={!loaderData.google.enabled ? 'google-unavailable' : undefined}>
               <img className="google-auth-logo" src="/images/google-g.png" width="20" height="20" alt="" aria-hidden="true" />
               <span aria-live="polite">{googlePending ? 'Connecting to Google…' : loaderData.canLink ? 'Link Google to your account' : 'Continue with Google'}</span>
-            </button>
+            </SubmissionButton>
             {!loaderData.google.enabled && <p id="google-unavailable" className="muted">{loaderData.google.reason}</p>}
           </Form>
           <Form method="post">
@@ -166,7 +167,7 @@ export default function Auth({ params, actionData, loaderData }: Route.Component
                 placeholder="At least 12 characters"
               />
             </label>
-            <button
+            <SubmissionButton
               className="button full"
               disabled={navigation.state !== "idle"}
             >
@@ -176,7 +177,7 @@ export default function Auth({ params, actionData, loaderData }: Route.Component
                   ? "Create account"
                   : "Sign in"}
               <Icon name="arrow" size={16} />
-            </button>
+            </SubmissionButton>
           </Form>
           <p className="auth-switch">
             {register ? "Already part of the community?" : "New to OMYQUANT?"}{" "}

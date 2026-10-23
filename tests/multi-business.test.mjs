@@ -9,6 +9,7 @@ import { approvedBusiness, verificationStatus } from '../app/lib/business-regist
 import { sessionCookie } from '../app/.server/modules/auth/auth.ts';
 import { updateMyAssignment } from '../app/.server/modules/assignments.ts';
 import { rentalUnits } from '../app/lib/rental-pricing.ts';
+import { businessSubmissionId } from '../app/.server/modules/business-submission.ts';
 
 const actor = { id: 'a'.repeat(24), admin: false };
 const business = 'b'.repeat(24);
@@ -30,10 +31,41 @@ afterEach(() => {
   if (saved.geocodingKey === undefined) delete process.env.GEOAPIFY_API_KEY; else process.env.GEOAPIFY_API_KEY = saved.geocodingKey;
   for (const [key, value] of [['MONGODB_URI', saved.uri], ['APP_ORIGIN', saved.origin]]) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
 });
-async function call(path, method = 'GET', body) {
-  return handleApi(new Request(`https://example.test/api/v1/${path}`, { method, headers: { Cookie: cookie, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }), path.split('?')[0]);
+async function call(path, method = 'GET', body, headers = {}) {
+  return handleApi(new Request(`https://example.test/api/v1/${path}`, { method, headers: { Cookie: cookie, ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }), path.split('?')[0]);
 }
 const details = { name: 'Independent provider', description: 'A registered business', contact: { email: 'business@example.test', phone: '0123456789' }, locations: [{ address: 'Pretoria', province: 'Gauteng' }] };
+
+test('submission keys are validated and scoped to the authenticated owner', () => {
+  const token = '75bcac96-3a20-4809-a20e-9a86c4a3edcf';
+  expect(businessSubmissionId(actor.id, token)).toMatch(/^[a-f0-9]{24}$/);
+  expect(businessSubmissionId(actor.id, token)).not.toBe(businessSubmissionId('another-owner', token));
+  expect(businessSubmissionId(actor.id, null)).toBeUndefined();
+  expect(() => businessSubmissionId(actor.id, 'not-a-uuid')).toThrow();
+});
+
+test.each([false, true])('registration retries return the original business, including a concurrent insert race: %s', async concurrent => {
+  const token = '75bcac96-3a20-4809-a20e-9a86c4a3edcf';
+  const id = businessSubmissionId(actor.id, token);
+  const existing = { ...details, _id: id, owner: actor.id, verified: false, verificationStatus: 'PENDING' };
+  const read = jest.spyOn(db.Business, 'findOne').mockResolvedValue(existing);
+  const create = jest.spyOn(db.Business, 'create');
+  const membership = jest.spyOn(db.Membership, 'create');
+  if (concurrent) {
+    read.mockResolvedValueOnce(null);
+    mongoose.connection.db = { collection: () => ({}) };
+    jest.spyOn(mongoose.mongo.GridFSBucket.prototype, 'find').mockReturnValue({ toArray: async () => [{ _id: new mongoose.Types.ObjectId('f'.repeat(24)) }] });
+    jest.spyOn(mongoose.connection, 'transaction').mockImplementation(work => work({}));
+    create.mockRejectedValue(Object.assign(new Error('duplicate'), { code: 11000 }));
+  }
+  const response = await call('businesses', 'POST', { ...details, types: ['farm'], verificationDocuments: [{ file: 'f'.repeat(24), name: 'Proof.pdf' }] }, { 'Idempotency-Key': token });
+  expect(response.status).toBe(200);
+  expect((await response.json()).data._id).toBe(id);
+  expect(read).toHaveBeenCalledWith({ _id: id, owner: actor.id });
+  expect(create).toHaveBeenCalledTimes(concurrent ? 1 : 0);
+  if (concurrent) expect(create).toHaveBeenCalledWith([expect.objectContaining({ _id: new mongoose.Types.ObjectId(id), owner: actor.id, verificationStatus: 'PENDING', verified: false })], { session: {} });
+  expect(membership).not.toHaveBeenCalled();
+});
 
 test('a customer with zero businesses receives an empty list without being forced to register', async () => {
   jest.spyOn(db.Membership, 'distinct').mockResolvedValue([]);

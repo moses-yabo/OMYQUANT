@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { businessSubmissionId } from "./modules/business-submission";
 import {
   businessMapData,
   setBusinessPin,
@@ -551,6 +552,11 @@ export async function handleApi(request: Request, path: string) {
     if (path === "businesses") {
       if (method === "POST") {
         const input = businessSchema.parse(await body(request));
+        const submissionId = businessSubmissionId(actor.id, request.headers.get("Idempotency-Key"));
+        if (submissionId) {
+          const previous = await db.Business.findOne({ _id: submissionId, owner: actor.id });
+          if (previous) return json(previous, 200);
+        }
         if (
           !input.verificationDocuments?.length ||
           (input.kind &&
@@ -570,32 +576,42 @@ export async function handleApi(request: Request, path: string) {
           input.locations[0],
           actor.id,
         );
-        const company = await mongoose.connection.transaction(
-          async (session) => {
-            const [company] = await db.Business.create(
-              [
-                {
-                  ...input,
-                  owner: actor.id,
-                  verified: false,
-                  verificationStatus: "PENDING",
-                },
-              ],
-              { session },
-            );
-            await db.Membership.create(
-              [
-                {
-                  business: String(company._id),
-                  user: actor.id,
-                  role: "owner",
-                },
-              ],
-              { session },
-            );
-            return company;
-          },
-        );
+        let company;
+        try {
+          company = await mongoose.connection.transaction(
+            async (session) => {
+              const [company] = await db.Business.create(
+                [
+                  {
+                    ...input,
+                    ...(submissionId ? { _id: new mongoose.Types.ObjectId(submissionId) } : {}),
+                    owner: actor.id,
+                    verified: false,
+                    verificationStatus: "PENDING",
+                  },
+                ],
+                { session },
+              );
+              await db.Membership.create(
+                [
+                  {
+                    business: String(company._id),
+                    user: actor.id,
+                    role: "owner",
+                  },
+                ],
+                { session },
+              );
+              return company;
+            },
+          );
+        } catch (error) {
+          if (submissionId && error instanceof Error && "code" in error && error.code === 11000) {
+            const previous = await db.Business.findOne({ _id: submissionId, owner: actor.id });
+            if (previous) return json(previous, 200);
+          }
+          throw error;
+        }
         return json(company, 201);
       }
       if (method === "GET")

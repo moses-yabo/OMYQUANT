@@ -1,4 +1,5 @@
-import { data, Form, Link, useNavigation } from 'react-router';
+import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import { data, Link, useNavigation } from "react-router";
 import type { Route } from './+types/delivery';
 import { Shell } from '../components/shell';
 import { requireCustomerPage } from '../.server/customer-access';
@@ -26,5 +27,5 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 export default function DeliveryPage({ loaderData, actionData }: Route.ComponentProps) {
   const pending = useNavigation().state !== 'idle';
-  return <Shell><div className="form-page"><Link to="/account#deliveries">My deliveries</Link><h1>Delivery quotes</h1><p>{loaderData.delivery.description}</p><p className="notice">{loaderData.delivery.status}</p>{actionData?.error && <p className="notice error" role="alert">{actionData.error}</p>}{actionData?.success && <p className="notice" role="status">{actionData.success}</p>}<section className="form-panel">{!loaderData.quotes.length && <p>No quotes yet. Check back for provider offers.</p>}{loaderData.quotes.map(quote => <article className="activity-card" key={quote._id}><h2>{quote.business?.name ?? 'Independent provider'}</h2><p>{zar(quote.price)} · {quote.status}</p>{loaderData.delivery.status === 'requested' && quote.status === 'offered' && <Form method="post"><input type="hidden" name="quote" value={quote._id} /><button className="button" disabled={pending}>Accept quote</button></Form>}</article>)}</section></div></Shell>;
+  return <Shell><div className="form-page"><Link to="/account#deliveries">My deliveries</Link><h1>Delivery quotes</h1><p>{loaderData.delivery.description}</p><p className="notice">{loaderData.delivery.status}</p>{actionData?.error && <p className="notice error" role="alert">{actionData.error}</p>}{actionData?.success && <p className="notice" role="status">{actionData.success}</p>}<section className="form-panel">{!loaderData.quotes.length && <p>No quotes yet. Check back for provider offers.</p>}{loaderData.quotes.map(quote => <article className="activity-card" key={quote._id}><h2>{quote.business?.name ?? 'Independent provider'}</h2><p>{zar(quote.price)} · {quote.status}</p>{loaderData.delivery.status === 'requested' && quote.status === 'offered' && <Form method="post"><input type="hidden" name="quote" value={quote._id} /><SubmissionButton className="button" disabled={pending}>Accept quote</SubmissionButton></Form>}</article>)}</section></div></Shell>;
 }

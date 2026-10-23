@@ -1,4 +1,5 @@
-import { data, Form, Link, redirect, useNavigation } from 'react-router';
+import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import { data, Link, redirect, useNavigation } from "react-router";
 import type { Route } from './+types/admin-businesses';
 import { Shell } from '../components/shell';
 import { verificationStatus, verificationStatuses } from '../lib/business-registry';
@@ -61,13 +62,13 @@ export default function AdminBusinesses({ loaderData: loaded, actionData }: Rout
         <p>Services: {business.types.join(', ')}</p>
         <p>Contact: {business.contact?.email || 'Not provided'} · {business.contact?.phone || 'Not provided'}</p>
         {business.locations?.map((location, index) => <p key={index}>{location.address}, {location.province}</p>)}
-        <details id="business-location" open><summary>Find business locations from their addresses</summary><p className="muted">Address lookup fills the coordinates for you. It does not approve the business or prove ownership of the premises.</p>{business.locations?.map((location, index) => <section key={index}><h3>{location.address}, {location.province}</h3><AddressLookup business={business._id} index={index} /><p className="muted">Saved coordinates: {location.latitude ?? 'not set'}, {location.longitude ?? 'not set'}</p><details><summary>Set coordinates manually instead</summary><Form method="post"><input type="hidden" name="intent" value="location" /><input type="hidden" name="index" value={index} /><div className="form-grid"><label>Latitude<input name="latitude" type="number" min="-90" max="90" step="any" required defaultValue={location.latitude ?? ''} /></label><label>Longitude<input name="longitude" type="number" min="-180" max="180" step="any" required defaultValue={location.longitude ?? ''} /></label></div><button className="button outline small" disabled={navigation.state !== 'idle'}>Save location pin</button></Form></details></section>)}</details>
+        <details id="business-location" open><summary>Find business locations from their addresses</summary><p className="muted">Address lookup fills the coordinates for you. It does not approve the business or prove ownership of the premises.</p>{business.locations?.map((location, index) => <section key={index}><h3>{location.address}, {location.province}</h3><AddressLookup business={business._id} index={index} /><p className="muted">Saved coordinates: {location.latitude ?? 'not set'}, {location.longitude ?? 'not set'}</p><details><summary>Set coordinates manually instead</summary><Form method="post"><input type="hidden" name="intent" value="location" /><input type="hidden" name="index" value={index} /><div className="form-grid"><label>Latitude<input name="latitude" type="number" min="-90" max="90" step="any" required defaultValue={location.latitude ?? ''} /></label><label>Longitude<input name="longitude" type="number" min="-180" max="180" step="any" required defaultValue={location.longitude ?? ''} /></label></div><SubmissionButton className="button outline small" disabled={navigation.state !== 'idle'}>Save location pin</SubmissionButton></Form></details></section>)}</details>
         {loaded.saved && <p role="status" className="notice">Verification decision saved.</p>}
         {actionData?.error && <p role="alert" className="notice error">{actionData.error}</p>}
         {business.verificationDocuments?.map(document => <p key={document.file}><a href={`/business/documents/${document.file}`}>Download {document.name}</a></p>)}
         <Form method="post">
           <label>Decision<select name="status" defaultValue={verificationStatus(business)}>{verificationStatuses.map(status => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}</select></label><label>Review note<textarea name="reason" maxLength={2000} placeholder="Record what you checked or why more review is needed." /></label>
-          <button className="button full" disabled={navigation.state !== 'idle'}>{navigation.state !== 'idle' ? 'Saving decision…' : 'Save review decision'}</button>
+          <SubmissionButton className="button full" disabled={navigation.state !== 'idle'}>{navigation.state !== 'idle' ? 'Saving decision…' : 'Save review decision'}</SubmissionButton>
         </Form>
       </section>
       <section className="form-panel"><h2>Review history</h2>
@@ -79,7 +80,7 @@ export default function AdminBusinesses({ loaderData: loaded, actionData }: Rout
       <Form method="get" className="form-panel"><div className="form-grid">
         <label>Verification status<select name="status" defaultValue={loaded.status}><option value="pending">Pending verification</option><option value="verified">Verified</option>{verificationStatuses.filter(status => !['PENDING', 'APPROVED'].includes(status)).map(status => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}<option value="all">All businesses</option></select></label>
         <label>Business name<input name="q" defaultValue={loaded.query} maxLength={100} /></label>
-      </div><button className="button full">Filter businesses</button></Form>
+      </div><SubmissionButton className="button full">Filter businesses</SubmissionButton></Form>
       <section className="form-panel"><h2>{loaded.total} businesses</h2>
         {!loaded.businesses.length && <p className="muted">No businesses match these filters.</p>}
         {loaded.businesses.map(item => <div className="activity-row" key={item._id}><div><strong>{item.name}</strong><p>{item.types.join(', ')} · {verificationStatus(item).replaceAll('_', ' ')} · {item.active ? 'Active' : 'Inactive'}</p></div><Link className="button outline small" to={`/admin/businesses/${item._id}`}>Review business</Link></div>)}

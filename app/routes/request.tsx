@@ -1,4 +1,5 @@
-import { Form, Link, data, useNavigation } from "react-router";
+import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import { Link, data, useNavigation } from "react-router";
 import type { Route } from "./+types/request";
 import { Shell } from "../components/shell";
 import { Icon } from "../components/icon";
@@ -112,7 +113,7 @@ export default function RequestPage({
             </Link>
           </div>
         ) : (
-          <Form method="post" className="form-panel">
+          <Form method="post" resetOnSuccess successMessage="Your request has been submitted. Follow its progress in your activity." className="form-panel">
             <h2>The journey details</h2>
             <div className="form-grid">
               <label>
@@ -243,13 +244,13 @@ export default function RequestPage({
                 </div>
               </>
             )}
-            <button
+            <SubmissionButton
               className="button full"
               disabled={loaderData.preview || navigation.state !== "idle"}
             >
               {navigation.state !== "idle" ? "Sending…" : "Send request"}
               <Icon name="arrow" size={16} />
-            </button>
+            </SubmissionButton>
           </Form>
         )}
       </div>

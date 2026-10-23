@@ -1,4 +1,5 @@
-import { data, Form, Link, redirect, useNavigation, useNavigate } from "react-router";
+import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import { data, Link, redirect, useNavigation, useNavigate } from "react-router";
 import type { Route } from "./+types/business-tools";
 import { Shell } from "../components/shell";
 import { api, result, mutationOrigin } from "../.server/frontend";
@@ -427,14 +428,14 @@ export default function BusinessTools({
                         : "Inactive")}
                 </p>
                 {record.user && <p>Assigned user: {record.user}</p>}
-                {tool === 'deliveryRequests' && <><p>{record.pickup?.province} → {record.dropoff?.province}</p><p>{record.goodsType} · {record.weightKg} kg</p>{loaded.writable && <Form method="post"><input type="hidden" name="tool" value={tool} /><input type="hidden" name="intent" value="quote" /><input type="hidden" name="record" value={record._id} /><input type="hidden" name="goodsType" value={record.goodsType} /><Field name="price" label="Delivery quote (R)" type="number" min={0} step="0.01" /><button className="button small" disabled={pending}>Offer quote</button></Form>}</>}
-                {tool === 'enquiries' && <><p>{record.question}</p><p>{record.answer || 'No reply yet.'}</p>{loaded.writable && <Form method="post"><input type="hidden" name="tool" value={tool} /><input type="hidden" name="intent" value="reply" /><input type="hidden" name="record" value={record._id} /><label>Reply to customer<textarea name="answer" maxLength={4000} required defaultValue={record.answer} /></label><button className="button small" disabled={pending}>Send reply</button></Form>}</>}
+                {tool === 'deliveryRequests' && <><p>{record.pickup?.province} → {record.dropoff?.province}</p><p>{record.goodsType} · {record.weightKg} kg</p>{loaded.writable && <Form method="post"><input type="hidden" name="tool" value={tool} /><input type="hidden" name="intent" value="quote" /><input type="hidden" name="record" value={record._id} /><input type="hidden" name="goodsType" value={record.goodsType} /><Field name="price" label="Delivery quote (R)" type="number" min={0} step="0.01" /><SubmissionButton className="button small" disabled={pending}>Offer quote</SubmissionButton></Form>}</>}
+                {tool === 'enquiries' && <><p>{record.question}</p><p>{record.answer || 'No reply yet.'}</p>{loaded.writable && <Form method="post"><input type="hidden" name="tool" value={tool} /><input type="hidden" name="intent" value="reply" /><input type="hidden" name="record" value={record._id} /><label>Reply to customer<textarea name="answer" maxLength={4000} required defaultValue={record.answer} /></label><SubmissionButton className="button small" disabled={pending}>Send reply</SubmissionButton></Form>}</>}
                 {loaded.writable && (listing || ['vehicles', 'deliveryVehicles', 'drivers', 'deliveryPersonnel'].includes(tool)) && <details><summary>Edit details</summary><Form method="post">
                   <input type="hidden" name="intent" value="edit" /><input type="hidden" name="record" value={record._id} /><input type="hidden" name="tool" value={tool} />
                   {listing ? <><label>Name<input name="name" defaultValue={record.name} required /></label><label>{tool === 'trailers' ? 'Daily price (R)' : 'Price (R)'}<input name="price" type="number" min="0" step="0.01" defaultValue={(record.dailyPrice ?? record.price ?? 0) / 100} required /></label>{tool !== 'trailers' ? <label>Quantity<input name="quantity" type="number" min="0" defaultValue={record.quantity} required /></label> : <><label>Hourly price (R, optional)<input name="hourlyPrice" type="number" min="0" step="0.01" defaultValue={record.hourlyPrice === undefined ? '' : record.hourlyPrice / 100} /></label><label>Monthly price (R, optional)<input name="monthlyPrice" type="number" min="0" step="0.01" defaultValue={record.monthlyPrice === undefined ? '' : record.monthlyPrice / 100} /></label></>}</> : <><label>Availability<select name="active" defaultValue={String(record.active !== false)}><option value="true">Available</option><option value="false">Unavailable</option></select></label>{['vehicles', 'deliveryVehicles'].includes(tool) && <label>Assign driver<select name="driver" defaultValue={record.driver ?? ''}><option value="">Keep current assignment</option>{loaded.drivers.map(driver => <option key={driver._id} value={driver._id}>{driver.user}</option>)}</select></label>}</>}
-                  <button className="button small" disabled={pending}>Save details</button>
+                  <SubmissionButton className="button small" disabled={pending}>Save details</SubmissionButton>
                 </Form></details>}
-                {loaded.writable && tool === 'deliveries' && record.status === 'assigned' && <Form method="post"><input type="hidden" name="intent" value="assign" /><input type="hidden" name="tool" value={tool} /><input type="hidden" name="record" value={record._id} /><label>Vehicle<select name="vehicle" required>{loaded.vehicles.map(vehicle => <option key={vehicle._id} value={vehicle._id}>{vehicle.registration}</option>)}</select></label><label>Delivery person<select name="driver" required>{loaded.drivers.map(driver => <option key={driver._id} value={driver._id}>{driver.user}</option>)}</select></label><button className="button small" disabled={pending}>Assign delivery</button></Form>}
+                {loaded.writable && tool === 'deliveries' && record.status === 'assigned' && <Form method="post"><input type="hidden" name="intent" value="assign" /><input type="hidden" name="tool" value={tool} /><input type="hidden" name="record" value={record._id} /><label>Vehicle<select name="vehicle" required>{loaded.vehicles.map(vehicle => <option key={vehicle._id} value={vehicle._id}>{vehicle.registration}</option>)}</select></label><label>Delivery person<select name="driver" required>{loaded.drivers.map(driver => <option key={driver._id} value={driver._id}>{driver.user}</option>)}</select></label><SubmissionButton className="button small" disabled={pending}>Assign delivery</SubmissionButton></Form>}
                 {record.items?.map((item, index) => (
                   <p key={index}>
                     {item.quantity} × {item.name}
@@ -523,9 +524,9 @@ export default function BusinessTools({
                       </select>
                     </label>
                     {tool === 'deliveries' && record.status === 'collected' && <Field name="proof" label="Proof of delivery URL" type="url" />}
-                    <button className="button small" disabled={pending}>
+                    <SubmissionButton className="button small" disabled={pending}>
                       Update status
-                    </button>
+                    </SubmissionButton>
                   </Form>
                 )}
               </article>
@@ -551,6 +552,7 @@ export default function BusinessTools({
         {create && (
           <Form
             key={tool}
+            resetOnSuccess
             method="post"
             encType="multipart/form-data"
             className="form-panel"
@@ -756,9 +758,9 @@ export default function BusinessTools({
                   Add a vehicle and route before scheduling a departure.
                 </p>
               )}
-            <button className="button full" disabled={pending}>
+            <SubmissionButton className="button full" disabled={pending}>
               {pending ? "Saving…" : "Save"}
-            </button>
+            </SubmissionButton>
           </Form>
         )}
         </>}

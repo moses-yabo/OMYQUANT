@@ -1,14 +1,6 @@
+import { SubmissionForm as Form, SubmissionButton, useSubmissionOutcome } from "./submission-feedback";
 import { ThemeToggle } from './theme';
-import {
-  Link,
-  Form,
-  NavLink,
-  useLocation,
-  useNavigation,
-  useSearchParams,
-  useRouteLoaderData,
-  useRevalidator,
-} from "react-router";
+import { Link, NavLink, useLocation, useNavigation, useSearchParams, useRouteLoaderData, useRevalidator,  } from "react-router";
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "./icon";
 import { sections } from "../lib/marketplace";
@@ -19,6 +11,7 @@ import "./admin-navigation.css";
 import { businessToolLabels } from '../lib/business-tools';
 type Workspace = { business: { _id: string; name: string }; available: (keyof typeof businessToolLabels)[] };
 export function Shell({ children, workspace }: { children: React.ReactNode; workspace?: Workspace }) {
+  useSubmissionOutcome();
   const [search] = useSearchParams();
   const current = search.get("section") ?? "all";
   const location = useLocation();
@@ -113,7 +106,7 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
               </span>
               <Form method="post" action="/account">
                 <input type="hidden" name="intent" value="logout" />
-                <button className="button outline small">Sign out</button>
+                <SubmissionButton className="button outline small">Sign out</SubmissionButton>
               </Form>
             </div>
           </header>
@@ -149,7 +142,7 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
         </nav>
       </aside>
       <div className="app-main">
-        <header className="topbar"><span className="topbar-label">{workspace.business.name}</span><div className="topbar-actions"><ThemeToggle /><Link className="button outline small" to="/business?view=all">Switch business</Link><Form method="post" action="/account"><input type="hidden" name="intent" value="logout" /><button className="button outline small">Sign out</button></Form></div></header>
+        <header className="topbar"><span className="topbar-label">{workspace.business.name}</span><div className="topbar-actions"><ThemeToggle /><Link className="button outline small" to="/business?view=all">Switch business</Link><Form method="post" action="/account"><input type="hidden" name="intent" value="logout" /><SubmissionButton className="button outline small">Sign out</SubmissionButton></Form></div></header>
         {navigation.state !== 'idle' && <div className="navigation-progress" role="progressbar" aria-label="Loading page" />}
         <main id="main-content">{children}</main>
         <footer className="footer"><span>OMYQUANT</span><span>Business management workspace</span></footer>

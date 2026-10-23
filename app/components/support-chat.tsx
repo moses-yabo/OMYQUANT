@@ -1,3 +1,4 @@
+import { useSubmissionFeedback } from './submission-feedback';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { complaintCategories, complaintStatuses } from '../lib/support';
@@ -12,6 +13,8 @@ async function supportRequest<T>(path: string, method = 'GET', body?: unknown, s
   return payload.data as T;
 }
 export function SupportChat({ accountId }: { accountId?: string }) {
+  const notify = useSubmissionFeedback();
+  const sending = useRef(false);
   const [open, setOpen] = useState(false);
   const [tickets, setTickets] = useState<Pick<Ticket, '_id' | 'subject' | 'status'>[]>([]);
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -56,15 +59,23 @@ export function SupportChat({ accountId }: { accountId?: string }) {
   }
   async function send(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !message.trim()) return;
+    if (busy || sending.current || !message.trim()) return;
+    sending.current = true;
     setBusy(true); setError(''); ++requestCounter.current;
     try {
       const response = ticket ? await supportRequest<{ _id: string }>(`/${ticket._id}`, 'PATCH', { message: message.trim(), version: ticket.version }) : await supportRequest<{ _id: string }>('', 'POST', { channel: 'chat', category, subject: `Chat: ${message.trim().slice(0, 150)}`, description: message.trim() });
-      const updated = await supportRequest<Ticket>(`/${response._id}`);
-      current.current = updated; setTicket(updated); setCreating(false); setMessage('');
+      setMessage('');
+      notify({ title: 'Message sent', message: 'Your message has been sent to the support team.' });
+      try {
+        const updated = await supportRequest<Ticket>(`/${response._id}`);
+        current.current = updated; setTicket(updated); setCreating(false);
+      } catch {
+        setCreating(false);
+        setError('Your message was sent, but the conversation could not refresh. Open it from all conversations to see the latest reply.');
+      }
       void refresh();
-    } catch (failure) { setError(failure instanceof Error ? failure.message : 'Message could not be sent.'); void refresh(); }
-    finally { setBusy(false); }
+    } catch (failure) { const message = failure instanceof Error ? failure.message : 'Message could not be sent.'; setError(message); notify({ title: 'Support update unsuccessful', message, error: true }); void refresh(); }
+    finally { sending.current = false; setBusy(false); }
   }
   return <div className="support-chat">
     <button ref={launcher} className="support-chat-launcher" type="button" aria-expanded={open} aria-controls="support-chat-panel" onClick={() => open ? close() : setOpen(true)}>Chat with support</button>

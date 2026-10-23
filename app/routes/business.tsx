@@ -1,4 +1,5 @@
-import { Form, Link, data, useNavigation, redirect } from "react-router";
+import { SubmissionForm as Form, SubmissionButton, useSubmissionFeedback } from "../components/submission-feedback";
+import { Link, data, useNavigation, useFetcher, redirect } from "react-router";
 import type { Route } from "./+types/business";
 import { Shell } from "../components/shell";
 import { Icon } from "../components/icon";
@@ -13,7 +14,9 @@ import {
 import { authenticate } from "../.server/modules/auth/auth";
 import { manage } from "../.server/shared/access";
 import { ApiError } from "../.server/shared/http";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { randomUUID } from "node:crypto";
+import { businessSubmissionId } from "../.server/modules/business-submission";
 import {
   businessRegistry,
   verificationStatus,
@@ -41,6 +44,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       preview: true,
       signedIn: false,
       error: "",
+      submissionKey: randomUUID(),
     };
   const search = new URL(request.url).searchParams;
   if (!search.has("view") && !search.has("register")) {
@@ -63,6 +67,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       preview: false,
       signedIn: response.status !== 401,
       error: response.status === 401 ? "" : (parsed.error?.message ?? ""),
+      submissionKey: randomUUID(),
     },
     { headers: { "Cache-Control": "no-store" } },
   );
@@ -93,6 +98,11 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
   const get = (key: string) => String(form.get(key) ?? "");
+  const submissionKey = get("submissionKey") || undefined;
+  if (get("intent") === "business" && submissionKey) {
+    try { businessSubmissionId("validation", submissionKey); }
+    catch { return data({ error: "Invalid submission key. Refresh the page and try again.", success: "" }, { status: 400 }); }
+  }
   let uploaded: { id: string; url: string } | undefined;
   let path: string;
   let payload: unknown;
@@ -205,8 +215,8 @@ export async function action({ request }: Route.ActionArgs) {
       { error: "Unknown business action.", success: "" },
       { status: 400 },
     );
-  const response = await api(request, path, "POST", payload);
-  if (response.status >= 400 && response.status < 500 && documents.length) {
+  const response = await api(request, path, "POST", payload, path === "businesses" ? submissionKey : undefined);
+  if (((response.status >= 400 && response.status < 500) || response.status === 200) && documents.length) {
     const { default: mongoose } = await import("mongoose");
     for (const document of documents)
       await documentBucket()
@@ -235,7 +245,7 @@ export async function action({ request }: Route.ActionArgs) {
       success: response.ok
         ? get("intent") === "product"
           ? "Your product listing has been saved."
-          : "Your business application has been submitted for verification. You can continue using the marketplace."
+          : "Your business registration has been submitted successfully and is awaiting verification. You will be notified once it has been reviewed."
         : "",
     },
     { status: response.status },
@@ -249,6 +259,27 @@ export default function BusinessPage({
   actionData,
 }: Route.ComponentProps) {
   const navigation = useNavigation();
+  const registration = useFetcher<typeof action>();
+  const formRef = useRef<HTMLFormElement>(null);
+  const submittingRef = useRef(false);
+  const handled = useRef(registration.data);
+  const [submissionKey, setSubmissionKey] = useState(loaderData.submissionKey);
+  const notify = useSubmissionFeedback();
+  useEffect(() => {
+    if (registration.state !== "idle") return;
+    submittingRef.current = false;
+    if (!registration.data || handled.current === registration.data) return;
+    handled.current = registration.data;
+    if (registration.data.success) {
+      formRef.current?.reset();
+      setKind("AGRICULTURAL_SELLER");
+      setSubmissionKey(crypto.randomUUID());
+      notify({ title: "Business Registration Submitted", message: registration.data.success });
+      window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    } else if (registration.data.error) {
+      notify({ title: "Unable to submit registration", message: registration.data.error, error: true });
+    }
+  }, [registration.state, registration.data, notify]);
   const [kind, setKind] = useState<BusinessKind>("AGRICULTURAL_SELLER");
   const disabled =
     loaderData.preview || !loaderData.signedIn || navigation.state !== "idle";
@@ -334,12 +365,18 @@ export default function BusinessPage({
             ))}
           </section>
         )}
-        <Form
+        <registration.Form
+          ref={formRef}
+          onSubmit={(event) => {
+            if (submittingRef.current) { event.preventDefault(); return; }
+            submittingRef.current = true;
+          }}
           method="post"
           encType="multipart/form-data"
           className="form-panel"
         >
           <input type="hidden" name="intent" value="business" />
+          <input type="hidden" name="submissionKey" value={submissionKey} />
           <h2>
             <Icon name="store" /> Register your business
           </h2>
@@ -416,16 +453,18 @@ export default function BusinessPage({
               <Province />
             </label>
           </div>
-          <button className="button full" disabled={disabled}>
-            {navigation.state !== "idle" ? "Saving…" : "Create business"}
-            <Icon name="arrow" size={16} />
-          </button>
-        </Form>
+          {registration.state === "idle" && registration.data?.error && <p role="alert" className="notice error">{registration.data.error}</p>}
+          <SubmissionButton className="button full" disabled={disabled || registration.state !== "idle" || !submissionKey} aria-busy={registration.state !== "idle"}>
+            {registration.state !== "idle" ? "Submitting..." : "Create business"}
+            {registration.state !== "idle" ? <span className="submission-spinner" aria-hidden="true" /> : <Icon name="arrow" size={16} />}
+          </SubmissionButton>
+        </registration.Form>
         {(loaderData.preview ||
           loaderData.businesses.some(
             (b) => b.active && b.verified && b.types.includes("farm"),
           )) && (
           <Form
+            resetOnSuccess
             method="post"
             encType="multipart/form-data"
             className="form-panel"
@@ -535,9 +574,9 @@ export default function BusinessPage({
                 <option value="published">Publish to marketplace</option>
               </select>
             </label>
-            <button className="button full" disabled={disabled}>
+            <SubmissionButton className="button full" disabled={disabled}>
               Save listing <Icon name="arrow" size={16} />
-            </button>
+            </SubmissionButton>
           </Form>
         )}
       </div>

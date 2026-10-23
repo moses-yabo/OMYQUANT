@@ -1,5 +1,6 @@
+import { SubmissionForm as Form, SubmissionButton, useFetcherSubmission } from "../components/submission-feedback";
 import { useEffect, useState, useRef } from "react";
-import { Form, Link, useFetcher, useSearchParams } from "react-router";
+import { Link, useFetcher, useSearchParams } from "react-router";
 import type { Route } from "./+types/home";
 import { Shell } from "../components/shell";
 import { Icon } from "../components/icon";
@@ -346,9 +347,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 ))}
               </select>
             </label>
-            <button className="button">
+            <SubmissionButton className="button">
               Search <Icon name="arrow" size={16} />
-            </button>
+            </SubmissionButton>
             <label className="sort-field">
               <select
                 aria-label="Sort listings"
@@ -419,16 +420,16 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                       </div>
                     )}
                     <span className="listing-tag">{listing.tag}</span>
-                    <button
+                    <SubmissionButton
                       className={`save-button ${saved.includes(listing.id) ? "saved" : ""}`}
                       aria-label={`${saved.includes(listing.id) ? "Unsave" : "Save"} ${listing.name}`}
                       aria-pressed={saved.includes(listing.id)}
                       onClick={() => toggle(listing.id)}
                     >
                       <Icon name="heart" size={18} />
-                    </button>
+                    </SubmissionButton>
                   </div>
-                  <button
+                  <SubmissionButton
                     className="listing-details"
                     onClick={() => setSelected(listing)}
                   >
@@ -447,7 +448,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                         <Icon name="arrow" size={17} />
                       </span>
                     </div>
-                  </button>
+                  </SubmissionButton>
                 </article>
               ))}
             </div>
@@ -513,6 +514,7 @@ function ListingDialog({
   close: () => void;
 }) {
   const fetcher = useFetcher<{ error?: string; success?: string; reference?: string }>();
+  const beginSubmission = useFetcherSubmission(fetcher.state, fetcher.data);
   const confirmation = useRef<HTMLElement>(null);
   const completed = fetcher.state === 'idle' && Boolean(fetcher.data?.success);
   const isOrder = listing.kind === 'products' || listing.kind === 'livestock';
@@ -545,14 +547,14 @@ function ListingDialog({
         onCancel={close}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
+        <SubmissionButton
           autoFocus
           className="modal-close"
           aria-label="Close listing"
           onClick={close}
         >
           <Icon name="close" />
-        </button>
+        </SubmissionButton>
         {listing.image && (
           <img className="modal-image" src={listing.image} alt={listing.name} />
         )}
@@ -583,11 +585,11 @@ function ListingDialog({
               </div>
               <div className="booking-success-actions">
                 <Link className="button" to={isOrder ? '/account#orders' : isRental ? '/account#reservations' : '/account'}>{isOrder ? 'View my orders' : isRental ? 'View my rentals' : 'View my activity'} <Icon name="arrow" size={16}/></Link>
-                <button type="button" className="button outline" onClick={close}>Done</button>
+                <SubmissionButton type="button" className="button outline" onClick={close}>Done</SubmissionButton>
               </div>
             </section>
           ) : (
-            <fetcher.Form method="post" action="/reserve">
+            <fetcher.Form method="post" action="/reserve" onSubmit={event => { if (!beginSubmission()) event.preventDefault(); }}>
               <input type="hidden" name="demo" value={String(demo)}/>
               <input type="hidden" name="id" value={listing.id} />
               <input type="hidden" name="kind" value={listing.kind} />
@@ -635,10 +637,11 @@ function ListingDialog({
               )}
               {listing.kind === 'taxis' && <p className="muted">Up to 15 passengers per taxi. If this taxi fills before you confirm, your group may move to the next scheduled taxi on the same operator and route at the same fare. The departure time may be later; check your confirmation.</p>}
               <div className="notice"><strong>Estimated total: {zar((isRental ? rate : listing.price) * units)}</strong><br/>{listing.kind === 'trailers' ? `${units} rental ${rateUnit}(s), rounded up. Times are South African time. A month is 30 days. Subject to business confirmation.` : `${units} × ${zar(listing.price)}`}</div>
-              <button
+              <SubmissionButton
                 className="button full"
                 disabled={fetcher.state !== "idle" || listing.quantity < 1 || (listing.kind === 'trailers' && days <= 0)}
               >
+                {fetcher.state !== "idle" && <span className="submission-spinner" aria-hidden="true" />}
                 {fetcher.state !== "idle"
                   ? "Submitting…"
                   : listing.kind === "trailers"
@@ -646,7 +649,7 @@ function ListingDialog({
                     : listing.kind === "taxis"
                       ? "Reserve seats"
                       : "Place order"}
-              </button>
+              </SubmissionButton>
             </fetcher.Form>
           )}
           {fetcher.data?.error && (
