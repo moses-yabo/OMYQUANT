@@ -3,19 +3,26 @@
   top: max(1rem, env(safe-area-inset-top));
   right: max(1rem, env(safe-area-inset-right));
   z-index: 1200;
-  width: min(28rem, calc(100vw - 2rem));
+  box-sizing: border-box;
+  width: min(25rem, calc(100vw - 2rem));
   display: flex;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid #8bb69a;
-  border-radius: 12px;
-  background: #e5f5e9;
-  color: #184b2a;
-  box-shadow: 0 8px 28px #0002;
+  align-items: flex-start;
+  gap: .75rem;
+  padding: 1rem;
+  border: 1px solid var(--theme-border, #dce5db);
+  border-radius: 14px;
+  background: var(--theme-surface, #fff);
+  color: var(--theme-text, #25372d);
+  box-shadow: 0 4px 12px #172b1810, 0 16px 40px #172b1818;
 }
-.submission-toast p { margin: .4rem 0 0; font-size: .9rem; line-height: 1.5; }
-.submission-toast button { align-self: flex-start; border: 0; padding: 0 .2rem; background: transparent; color: inherit; cursor: pointer; font-size: 1.5rem; min-width: 32px; min-height: 32px; }
-.submission-toast-error { background: #fff0eb; border-color: #cd8b76; color: #7a281a; }
+.submission-toast-icon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 50%; background: #e5f5e9; color: #23653b; }
+.submission-toast-content { flex: 1; min-width: 0; padding-top: .1rem; overflow-wrap: anywhere; }
+.submission-toast strong { display: block; font-size: .9375rem; line-height: 1.4; font-weight: 650; }
+.submission-toast p { margin: .25rem 0 0; color: var(--theme-muted, #65735f); font-size: .8125rem; line-height: 1.5; }
+.submission-toast .submission-toast-dismiss { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; margin: -.25rem -.25rem 0 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--theme-muted, #65735f); cursor: pointer; }
+.submission-toast .submission-toast-dismiss:hover { background: var(--theme-surface-tint, #eef3eb); color: var(--theme-text, #25372d); }
+.submission-toast .submission-toast-dismiss:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.submission-toast-error .submission-toast-icon { background: #fff0eb; color: #a13b28; }
 .submission-spinner { width: 1rem; height: 1rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: submission-spin .8s linear infinite; }
 .submission-progress { display: flex; align-items: center; gap: .6rem; padding-top: .75rem; }
 @keyframes submission-spin { to { transform: rotate(360deg); } }

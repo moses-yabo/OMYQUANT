@@ -1,3 +1,4 @@
+import { LoadingIndicator, LoadingImage } from "../components/loading";
 import { SubmissionForm as Form, SubmissionButton, useFetcherSubmission } from "../components/submission-feedback";
 import { useEffect, useState, useRef } from "react";
 import { Link, useFetcher, useSearchParams } from "react-router";
@@ -133,7 +134,7 @@ export async function clientLoader({ serverLoader }: Route.ClientLoaderArgs) {
   catch (error) { return { ...data, error: error instanceof Error ? error.message : 'Browser storage is unavailable.' }; }
 }
 clientLoader.hydrate = true as const;
-export function HydrateFallback() { return <Shell><div className="form-page"><p className="notice">Loading your marketplace…</p></div></Shell>; }
+export function HydrateFallback() { return <Shell><div className="form-page"><LoadingIndicator label="Loading your marketplace..." /></div></Shell>; }
 export default function Home({ loaderData }: Route.ComponentProps) {
   const [params] = useSearchParams();
   const section = params.get("section") ?? "all";
@@ -403,7 +404,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 <article className="listing-card" key={listing.id}>
                   <div className="listing-photo">
                     {listing.image ? (
-                      <img
+                      <LoadingImage
                         src={listing.image}
                         alt={listing.name}
                         loading="lazy"
@@ -556,7 +557,7 @@ function ListingDialog({
           <Icon name="close" />
         </SubmissionButton>
         {listing.image && (
-          <img className="modal-image" src={listing.image} alt={listing.name} />
+          <LoadingImage className="modal-image" src={listing.image} alt={listing.name} />
         )}
         <div className="modal-content">
           <span className="eyebrow">{listing.tag}</span>

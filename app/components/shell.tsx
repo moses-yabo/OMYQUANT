@@ -118,7 +118,7 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
             />
           )}
           {!location.pathname.startsWith('/admin/support') && <SupportActivityNotice />}
-          <main id="main-content">{children}</main>
+          <main id="main-content" aria-busy={navigation.state !== "idle"}>{children}</main>
           <footer className="footer">
             <span>© {new Date().getFullYear()} OMYQUANT</span>
             <span>{isSuperAdmin ? 'Super administrator workspace' : 'Administrator workspace'}</span>
@@ -144,7 +144,7 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
       <div className="app-main">
         <header className="topbar"><span className="topbar-label">{workspace.business.name}</span><div className="topbar-actions"><ThemeToggle /><Link className="button outline small" to="/business?view=all">Switch business</Link><Form method="post" action="/account"><input type="hidden" name="intent" value="logout" /><SubmissionButton className="button outline small">Sign out</SubmissionButton></Form></div></header>
         {navigation.state !== 'idle' && <div className="navigation-progress" role="progressbar" aria-label="Loading page" />}
-        <main id="main-content">{children}</main>
+        <main id="main-content" aria-busy={navigation.state !== "idle"}>{children}</main>
         <footer className="footer"><span>OMYQUANT</span><span>Business management workspace</span></footer>
       </div>
       {!isAdmin && <SupportChat accountId={root?.user?._id ?? root?.user?.id} />}
@@ -281,7 +281,7 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
             aria-label="Loading page"
           />
         )}
-        <main id="main-content">{children}</main>
+        <main id="main-content" aria-busy={navigation.state !== "idle"}>{children}</main>
         {!root?.demo && !isAdmin && <SupportChat key={root?.user?.id ?? root?.user?._id ?? 'guest'} accountId={root?.user?.id ?? root?.user?._id} />}
         {root?.user && <NotificationSettings />}
         {root?.demo && (

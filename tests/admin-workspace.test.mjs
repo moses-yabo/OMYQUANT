@@ -55,6 +55,8 @@ test.each([true, false])('both admin roles render the Leaflet map shell without 
   expect(response.status).toBe(200);
   const html = await response.text();
   expect(html).toContain('Interactive business locations map');
+  expect(html).toContain('Loading interactive map...');
+  expect(html).toContain('aria-busy="true"');
   expect(html).toContain('Registered taxi operator');
   expect(html).toContain('Needs coordinates');
   expect(html).toContain('Search businesses');

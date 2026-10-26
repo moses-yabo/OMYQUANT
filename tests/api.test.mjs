@@ -29,6 +29,8 @@ test('cross-site requests cannot mutate authenticated resources', async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /Loading your marketplace/);
+  assert.match(html, /role="status"/);
+  assert.match(html, /loading-spinner/);
   assert.doesNotMatch(html, /Welcome to React Router/);
 });
 (process.env.MONGODB_URI ? test.skip : test)('frontend pages render without database access in preview mode', async () => {

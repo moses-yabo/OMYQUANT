@@ -1,3 +1,4 @@
+import { LoadingIndicator } from './loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import type { CircleMarker, Map as LeafletMap } from 'leaflet';
@@ -12,6 +13,7 @@ export function BusinessMap({ businesses, total = businesses.length }: { busines
   const markers = useRef(new Map<string, CircleMarker>());
   const [query, setQuery] = useState(''); const [status, setStatus] = useState('all');
   const [type, setType] = useState('all'); const [province, setProvince] = useState('all');
+  const [tilesLoading, setTilesLoading] = useState(false);
   const [page, setPage] = useState(0); const [error, setError] = useState(''); const [ready, setReady] = useState(false);
   const filtered = useMemo(() => filterMapBusinesses(businesses, { query, status, type, province }), [businesses, query, status, type, province]);
   const pins = useMemo(() => businessPins(filtered).filter(pin => province === 'all' || pin.location.province === province), [filtered, province]);
@@ -25,6 +27,9 @@ export function BusinessMap({ businesses, total = businesses.length }: { busines
       instance = L.map(container.current, { preferCanvas: true, scrollWheelZoom: false }).setView([-29, 25], 5);
       map.current = instance;
       const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(instance);
+      tiles.on('loading', () => { if (!stopped) setTilesLoading(true); });
+      tiles.on('load', () => { if (!stopped) setTilesLoading(false); });
+      setTilesLoading(tiles.isLoading());
       tiles.on('tileerror', () => { if (!stopped) setError('Some map tiles could not load. Saved locations and the business list remain available.'); });
       const groups = new Map<string, BusinessPin[]>();
       for (const pin of pins) { const key = `${pin.latitude},${pin.longitude}`; groups.set(key, [...(groups.get(key) ?? []), pin]); }
@@ -67,7 +72,7 @@ export function BusinessMap({ businesses, total = businesses.length }: { busines
     {total > businesses.length && <p className="notice">Showing the newest {businesses.length} of {total} businesses. Use the verification queue to find older records.</p>}
     {error && <p className="notice" role="status">{error}</p>}
     <div className="business-map-layout">
-      <div><div ref={container} className="business-map-canvas" role="region" aria-label="Interactive business locations map" />{!ready && !error && <p className="muted" role="status">Loading interactive map…</p>}<p className="business-map-note">Saved coordinates only. No coordinates means no pin; a town name is not a precise business location. Larger markers group locations sharing the same coordinates.</p><a className="text-button" href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer">Report a basemap issue</a></div>
+      <div><div ref={container} className="business-map-canvas" aria-busy={!error && (!ready || tilesLoading)} role="region" aria-label="Interactive business locations map" />{!ready && !error && <LoadingIndicator label="Loading interactive map..." />}{ready && tilesLoading && !error && <LoadingIndicator label="Loading map tiles..." compact />}<p className="business-map-note">Saved coordinates only. No coordinates means no pin; a town name is not a precise business location. Larger markers group locations sharing the same coordinates.</p><a className="text-button" href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer">Report a basemap issue</a></div>
       <div className="business-map-directory"><h3>{filtered.length} businesses · {filtered.length - pinnedBusinesses.size} need a location</h3>{!filtered.length && <p className="muted">No businesses match these filters.</p>}{filtered.slice(selectedPage * 20, selectedPage * 20 + 20).map(business => <article className="business-map-card" key={business._id}><strong>{business.name}</strong><span className="muted">{mapStatus(business).replaceAll('_', ' ')} · {business.types.join(', ').replaceAll('_', ' ')}</span><span>{business.locations.map(location => location.province).filter(Boolean).join(' · ') || 'No location recorded'}</span><div>{pinnedBusinesses.has(business._id) ? <button type="button" className="text-button" onClick={() => focus(business._id)}>Locate on map</button> : <span className="muted">Needs coordinates</span>}<Link className="text-button" to={`/admin/businesses/${business._id}#business-location`}>Review / set pin</Link></div></article>)}<div className="business-map-pagination"><button className="button outline small" disabled={selectedPage === 0} onClick={() => setPage(selectedPage - 1)}>Previous</button><span>{selectedPage + 1} / {Math.max(1, Math.ceil(filtered.length / 20))}</span><button className="button outline small" disabled={(selectedPage + 1) * 20 >= filtered.length} onClick={() => setPage(selectedPage + 1)}>Next</button></div></div>
     </div>
   </section>;

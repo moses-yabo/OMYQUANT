@@ -1,3 +1,4 @@
+import { LoadingIndicator } from "../components/loading";
 import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
 import { Link, data, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/account";
@@ -106,7 +107,7 @@ export async function clientLoader({ serverLoader }: Route.ClientLoaderArgs) {
   } catch (error) { return { ...loaded, groups: [{ kind: 'Local bookings', items: [] as Activity[], error: error instanceof Error ? error.message : 'Browser storage is unavailable.' }] }; }
 }
 clientLoader.hydrate = true as const;
-export function HydrateFallback() { return <Shell><div className="form-page"><p className="notice">Loading browser bookings…</p></div></Shell>; }
+export function HydrateFallback() { return <Shell><div className="form-page"><LoadingIndicator label="Loading browser bookings..." /></div></Shell>; }
 export async function clientAction({ request, serverAction }: Route.ClientActionArgs) {
   const form = await request.clone().formData();
   if (form.get('local') === 'true' && form.get('intent') === 'logout') { const { logoutBrowser } = await import('../lib/browser-auth'); logoutBrowser(); return redirect('/login'); }

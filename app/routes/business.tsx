@@ -399,12 +399,16 @@ export default function BusinessPage({
             <input
               type="file"
               name="verificationDocuments"
+              aria-describedby="registration-document-formats"
               multiple
               required
               accept="application/pdf,image/png,image/jpeg,image/webp"
             />
+            <small id="registration-document-formats" className="muted">
+              Accepted formats: PDF (.pdf), JPG/JPEG (.jpg, .jpeg), PNG (.png) and WebP (.webp). Upload 1–5 files, up to 5 MiB each.
+            </small>
             <span className="muted">
-              {businessRegistry[kind].documents}. Up to five files, 5 MiB each.
+              {businessRegistry[kind].documents}.
               Documents are private and available to reviewers.
             </span>
           </label>
