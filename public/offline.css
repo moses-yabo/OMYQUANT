@@ -1,0 +1,14 @@
+:root[data-offline] a[href], :root[data-offline] button:not([data-offline-dismiss]):not([data-offline-reload]):not(.theme-control button) { cursor: not-allowed; }
+html[data-offline-snapshot][data-theme="dark"] { color-scheme: dark; --theme-page: #111a15; --theme-surface: #1a261f; --theme-text: #e7eee8; --theme-muted: #b3c2b5; --theme-border: #435447; --theme-accent: #b8d99a; --theme-focus: #c5e7a1; }
+.offline-dialog { box-sizing: border-box; width: min(25rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow-y: auto; margin: auto; padding: 1.5rem; border: 1px solid var(--theme-border, #dce5db); border-radius: 18px; background: var(--theme-surface, #fff); color: var(--theme-text, #25372d); font-family: inherit; box-shadow: 0 12px 48px #0004; }
+.offline-dialog::backdrop { background: #0007; }
+.offline-dialog h2 { margin: 0 0 .75rem; font-size: 1.25rem; }
+.offline-dialog p { margin: .75rem 0; font-size: .875rem; line-height: 1.6; color: var(--theme-muted, #65735f); }
+.offline-dialog button, .offline-snapshot-banner button { min-height: 44px; padding: .625rem 1rem; border: 1px solid var(--theme-accent, #005039); border-radius: 9px; background: var(--theme-accent, #005039); color: var(--theme-page, #fff); font: inherit; cursor: pointer; }
+.offline-dialog button:focus-visible, .offline-snapshot-banner button:focus-visible { outline: 2px solid var(--theme-focus, #617c29); outline-offset: 3px; }
+.offline-dialog-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.offline-snapshot-banner { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: 1rem; border-bottom: 1px solid var(--theme-border, #dce5db); background: var(--theme-surface, #fff); color: var(--theme-text, #25372d); }
+.offline-snapshot-banner span { flex: 1 1 18rem; font-size: .8125rem; line-height: 1.5; color: var(--theme-muted, #65735f); }
+html[data-offline-snapshot] { background: var(--theme-page, #f8faf5); }
+html[data-offline-snapshot] main { max-width: 1400px; margin: auto; }
+html[data-offline-snapshot] .loading-image { background: var(--theme-surface-tint, #eaf0dd); }

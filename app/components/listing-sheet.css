@@ -1,0 +1,25 @@
+.listing-sheet-header { display: contents; }
+.listing-sheet-handle { display: none; }
+@media (max-width: 650px) {
+  .modal-backdrop .listing-modal {
+    inset: auto 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - max(1rem, env(safe-area-inset-top)));
+    margin: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    border-radius: 24px 24px 0 0;
+    overscroll-behavior: contain;
+    scroll-padding-block: 4rem 1.5rem;
+    animation: listing-sheet-enter .22s ease-out;
+  }
+  .listing-modal .listing-sheet-header { position: sticky; top: 0; z-index: 2; display: flex; justify-content: flex-end; align-items: center; min-height: 60px; padding: .5rem 1rem; background: var(--theme-surface, #fff); border-bottom: 1px solid var(--theme-border, #dce5db); }
+  .listing-sheet-header .listing-sheet-handle { position: absolute; top: 12px; left: calc(50% - 20px); display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--theme-border-strong, #a6b3a4); }
+  .listing-sheet-header .modal-close { position: static; width: 44px; height: 44px; min-height: 44px; color: var(--theme-text, #25372d); background: var(--theme-field, #f5f8f4); }
+  .listing-modal .modal-content { padding: 1.25rem 1.25rem 1.5rem; }
+  .listing-modal .modal-content input, .listing-modal .modal-content select { min-height: 44px; font-size: 16px; }
+  .listing-modal .modal-content .button { min-height: 44px; }
+  .listing-modal .modal-close:focus-visible { outline: 2px solid var(--theme-focus, #617c29); outline-offset: 2px; }
+}
+@keyframes listing-sheet-enter { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .modal-backdrop .listing-modal { animation: none; } }

@@ -14,6 +14,7 @@ import { ThemeProvider, ThemeToggle } from "./components/theme";
 import { themeBootstrap } from "./lib/theme";
 import { SubmissionFeedbackProvider } from "./components/submission-feedback";
 import { PwaInstall } from "./components/pwa-install";
+import { applePwaLinks } from "./lib/apple-pwa";
 import { api, result } from "./.server/frontend";
 import { demoEnabled } from "./.server/demo-mode";
 import { sessionToken } from "./.server/modules/auth/auth";
@@ -95,8 +96,9 @@ export function headers() {
 }
 
 export const links: Route.LinksFunction = () => [
+  { rel: "stylesheet", href: "/offline.css" },
   { rel: "manifest", href: "/manifest.webmanifest" },
-  { rel: "apple-touch-icon", sizes: "180x180", href: "/images/apple-touch-icon.png" },
+  ...applePwaLinks(),
   { rel: "icon", type: "image/png", href: "/images/favicon.png?v=2" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -128,6 +130,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           Skip to content
         </a>
         <ThemeProvider>{children}</ThemeProvider>
+        <script src="/offline-client.js" defer />
         <ScrollRestoration />
         <Scripts />
       </body>

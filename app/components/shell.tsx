@@ -21,6 +21,7 @@ import { SupportChat } from "./support-chat";
 import { SupportActivityNotice } from "./support-live-updates";
 import "./admin-navigation.css";
 import { businessToolLabels } from "../lib/business-tools";
+import { MobileNavigation } from "./mobile-navigation";
 type Workspace = {
   business: { _id: string; name: string };
   available: (keyof typeof businessToolLabels)[];
@@ -272,7 +273,7 @@ export function Shell({
       </div>
     );
   return (
-    <div className="app-shell">
+    <div className={`app-shell${!isAdmin ? " customer-mobile-shell" : ""}`}>
       <aside className="sidebar">
         <Link to="/" className="brand">
           <span className="brand-mark">
@@ -438,6 +439,7 @@ export function Shell({
           </Link>
         </footer>
       </div>
+      {!isAdmin && <MobileNavigation signedIn={Boolean(root?.user)} />}
     </div>
   );
 }

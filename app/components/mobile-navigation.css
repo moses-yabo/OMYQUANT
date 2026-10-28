@@ -1,0 +1,32 @@
+.mobile-tabs { display: none; }
+@media (max-width: 650px) {
+  :root:has(.customer-mobile-shell) { --mobile-nav-space: 4.5rem; }
+  .customer-mobile-shell { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
+  .customer-mobile-shell .sidebar { padding: .75rem 1rem; }
+  .customer-mobile-shell .sidebar .brand { margin: 0; }
+  .customer-mobile-shell .sidebar > nav,
+  .customer-mobile-shell .sidebar > .nav-label,
+  .customer-mobile-shell .sidebar .nav-divider,
+  .customer-mobile-shell .sidebar .sidebar-bottom { display: none; }
+  .customer-mobile-shell .topbar { padding-top: max(.75rem, env(safe-area-inset-top)); }
+  .customer-mobile-shell .mobile-tabs {
+    position: fixed;
+    z-index: 38;
+    inset: auto 0 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    min-height: 4.5rem;
+    padding: .375rem max(.5rem, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(.5rem, env(safe-area-inset-left));
+    border-top: 1px solid var(--theme-border, #dce5db);
+    background: var(--theme-surface, #fff);
+    box-shadow: 0 -4px 20px #0000000a;
+  }
+  .mobile-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .25rem; min-height: 56px; min-width: 0; padding: .25rem; border-radius: 12px; color: var(--theme-muted, #65735f); font-size: .6875rem; font-weight: 600; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+  .mobile-tab-icon { display: grid; place-items: center; min-width: 3rem; height: 28px; border-radius: 14px; }
+  .mobile-tab.active { color: var(--theme-accent, #005039); }
+  .mobile-tab.active .mobile-tab-icon { background: var(--theme-surface-tint, #e5f0e4); }
+  .mobile-tab:focus-visible { outline: 2px solid var(--theme-focus, #617c29); outline-offset: -2px; }
+  .mobile-tab:active { background: var(--theme-field, #f5f8f4); }
+  .customer-mobile-shell .support-chat { bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+  .customer-mobile-shell .support-chat-panel { max-height: min(640px, calc(100dvh - 12rem - env(safe-area-inset-bottom))); }
+}

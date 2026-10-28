@@ -22,7 +22,7 @@ Verified providers can open **My business → Manage business** for farming/live
 
 Customers can opt into browser notifications for successful orders, seat bookings and trailer reservation requests while the app is open. Existing in-page confirmations remain available. See [notification setup and current limits](docs/notifications.md); pickup/drop-off and background Web Push remain future work.
 
-The website can also be installed as a home-screen web app. Eligible mobile browsers receive an install offer; iPhone/iPad visitors receive Add to Home Screen instructions. Installation requires HTTPS or localhost. Offline navigation shows a connection page; bookings and account operations still require internet. See [PWA installation and verification](docs/pwa.md).
+The website can also be installed as a home-screen web app. Eligible mobile browsers receive an install offer; iPhone/iPad visitors receive Add to Home Screen instructions. Installation requires HTTPS or localhost. A visited public marketplace can be saved as a read-only offline copy; offline navigation/submission attempts show a connection dialog. Private pages are not cached, and bookings/account operations still require internet. See [PWA installation and verification](docs/pwa.md).
 
 An optional Upstash Redis free-tier cache accelerates public catalog searches while MongoDB supplies fresh provider eligibility and listing contents. It is disabled until server credentials are configured and falls back to MongoDB on cache failure. See [Redis setup, consistency and limits](docs/redis-cache.md).
 

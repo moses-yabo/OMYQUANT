@@ -11,6 +11,7 @@ import { demoEnabled } from "../.server/demo-mode";
 import { categoryContent } from "../lib/category-content";
 import { taxiSeatsAvailable } from "../lib/taxi-capacity";
 import { ListingDialog } from "../components/listing-dialog";
+import { savePublicMarketplace } from "../lib/offline-snapshot";
 
 type RecordData = {
   _id: string;
@@ -176,6 +177,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const sort = params.get("sort") ?? "recent";
   const isLanding =
     section === "all" && !params.has("saved") && !query && !province;
+  useEffect(() => {
+    if (!isLanding || loaderData.error) return;
+    const timer = window.setTimeout(() => { void savePublicMarketplace().catch(() => {}); }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [isLanding, loaderData]);
   const content =
     categoryContent[
       params.has("saved") ? "saved" : section === "all" ? "search" : section

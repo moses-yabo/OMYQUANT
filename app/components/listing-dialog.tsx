@@ -5,6 +5,7 @@ import { Link, useFetcher } from "react-router";
 import { Icon } from "./icon";
 import { zar, type Listing } from "../lib/marketplace";
 import { rentalUnits, type RentalUnit } from "../lib/rental-pricing";
+import "./listing-sheet.css";
 
 export function ListingDialog({
   listing,
@@ -60,14 +61,17 @@ export function ListingDialog({
         onCancel={close}
         onClick={(e) => e.stopPropagation()}
       >
-        <SubmissionButton
-          autoFocus
-          className="modal-close"
-          aria-label="Close listing"
-          onClick={close}
-        >
-          <Icon name="close" />
-        </SubmissionButton>
+        <div className="listing-sheet-header">
+          <span className="listing-sheet-handle" aria-hidden="true" />
+          <SubmissionButton
+            autoFocus
+            className="modal-close"
+            aria-label="Close listing"
+            onClick={close}
+          >
+            <Icon name="close" />
+          </SubmissionButton>
+        </div>
         {listing.image && (
           <LoadingImage
             className="modal-image"

@@ -57,7 +57,17 @@ const server = createServer(async (req, res) => {
         types[extname(path)] ?? "application/octet-stream",
       );
       res.setHeader("X-Content-Type-Options", "nosniff");
-      if (path === resolve(root, "sw.js") || path === resolve(root, "manifest.webmanifest") || path === resolve(root, "offline.html"))
+      if (
+        [
+          "sw.js",
+          "manifest.webmanifest",
+          "offline.html",
+          "offline-client.js",
+          "offline.css",
+          "apple-touch-icon.png",
+          "apple-touch-icon-precomposed.png",
+        ].some((file) => path === resolve(root, file))
+      )
         res.setHeader("Cache-Control", "no-cache");
       if (path.startsWith(resolve(root, "assets") + sep))
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");

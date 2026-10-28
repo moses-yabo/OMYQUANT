@@ -5,31 +5,68 @@ import { routes } from "../build/server/index.js";
 
 function worker() {
   const handlers = {};
-  const cache = { add: jest.fn().mockResolvedValue(undefined), match: jest.fn().mockResolvedValue(new Response("Offline information")) };
+  const cache = {
+    addAll: jest.fn().mockResolvedValue(undefined),
+    match: jest.fn().mockResolvedValue(new Response("Offline information")),
+  };
   const caches = {
     open: jest.fn().mockResolvedValue(cache),
-    keys: jest.fn().mockResolvedValue(["omyquant-offline-v0", "omyquant-offline-v1", "unrelated-cache"]),
+    keys: jest
+      .fn()
+      .mockResolvedValue([
+        "omyquant-offline-v0",
+        "omyquant-offline-v1",
+        "omyquant-offline-v2",
+        "unrelated-cache",
+      ]),
     delete: jest.fn().mockResolvedValue(true),
   };
   const fetch = jest.fn().mockResolvedValue(new Response("Live content"));
-  const self = { location: { origin: "https://example.test" }, clients: { claim: jest.fn().mockResolvedValue(undefined) }, addEventListener: (name, callback) => { handlers[name] = callback; } };
-  runInNewContext(readFileSync("public/sw.js", "utf8"), { self, caches, fetch, URL, Response });
+  const self = {
+    location: { origin: "https://example.test" },
+    clients: { claim: jest.fn().mockResolvedValue(undefined) },
+    addEventListener: (name, callback) => {
+      handlers[name] = callback;
+    },
+  };
+  runInNewContext(readFileSync("public/sw.js", "utf8"), {
+    self,
+    caches,
+    fetch,
+    URL,
+    Response,
+  });
   return { handlers, cache, caches, fetch, self };
 }
-function navigation(url = "https://example.test/account", method = "GET", mode = "navigate") {
+function navigation(
+  url = "https://example.test/account",
+  method = "GET",
+  mode = "navigate",
+) {
   return { request: { url, method, mode }, respondWith: jest.fn() };
 }
 
-test("worker preloads only the public offline page and removes only its own old cache", async () => {
+test("worker preloads the public offline page and guard assets and removes only its own old caches", async () => {
   const state = worker();
   let pending;
-  state.handlers.install({ waitUntil(value) { pending = value; } });
+  state.handlers.install({
+    waitUntil(value) {
+      pending = value;
+    },
+  });
   await pending;
-  expect(state.cache.add).toHaveBeenCalledTimes(1);
-  expect(state.cache.add).toHaveBeenCalledWith("/offline.html");
-  state.handlers.activate({ waitUntil(value) { pending = value; } });
+  expect(state.cache.addAll).toHaveBeenCalledWith([
+    "/offline.html",
+    "/offline-client.js",
+    "/offline.css",
+  ]);
+  state.handlers.activate({
+    waitUntil(value) {
+      pending = value;
+    },
+  });
   await pending;
-  expect(state.caches.delete).toHaveBeenCalledTimes(1);
+  expect(state.caches.delete).toHaveBeenCalledTimes(2);
   expect(state.caches.delete).toHaveBeenCalledWith("omyquant-offline-v0");
   expect(state.self.clients.claim).toHaveBeenCalled();
 });
@@ -40,14 +77,93 @@ test.each([
   ["/media/images/file", "GET", "navigate"],
   ["/business/documents/file", "GET", "navigate"],
   ["/reserve", "POST", "navigate"],
-  ["/account.data", "GET", "cors"],
   ["https://external.test/", "GET", "navigate"],
-])("worker leaves sensitive or non-navigation request %s untouched", (path, method, mode) => {
+])(
+  "worker leaves sensitive or non-navigation request %s untouched",
+  (path, method, mode) => {
+    const state = worker();
+    const event = navigation(
+      new URL(path, "https://example.test").href,
+      method,
+      mode,
+    );
+    state.handlers.fetch(event);
+    expect(event.respondWith).not.toHaveBeenCalled();
+    expect(state.fetch).not.toHaveBeenCalled();
+    expect(state.caches.open).not.toHaveBeenCalled();
+  },
+);
+
+test("a recent public snapshot opens offline only at the marketplace URL", async () => {
   const state = worker();
-  const event = navigation(new URL(path, "https://example.test").href, method, mode);
+  state.fetch.mockRejectedValue(new TypeError("Offline"));
+  state.cache.match.mockImplementation(async (key) =>
+    key === "/offline-marketplace.html"
+      ? new Response("Public marketplace copy", {
+          headers: { "X-OMYQUANT-Saved-At": String(Date.now()) },
+        })
+      : new Response("Generic offline information"),
+  );
+  const home = navigation("https://example.test/");
+  state.handlers.fetch(home);
+  expect(await (await home.respondWith.mock.calls[0][0]).text()).toBe(
+    "Public marketplace copy",
+  );
+  const account = navigation("https://example.test/account");
+  state.handlers.fetch(account);
+  expect(await (await account.respondWith.mock.calls[0][0]).text()).toBe(
+    "Generic offline information",
+  );
+});
+
+test("expired marketplace snapshots are never served", async () => {
+  const state = worker();
+  state.fetch.mockRejectedValue(new TypeError("Offline"));
+  state.cache.match.mockImplementation(async (key) =>
+    key === "/offline-marketplace.html"
+      ? new Response("Expired", {
+          headers: { "X-OMYQUANT-Saved-At": String(Date.now() - 86400001) },
+        })
+      : new Response("Connection needed"),
+  );
+  const home = navigation("https://example.test/");
+  state.handlers.fetch(home);
+  expect(await (await home.respondWith.mock.calls[0][0]).text()).toBe(
+    "Connection needed",
+  );
+});
+
+test("offline static assets use previously stored public copies without saving live responses", async () => {
+  const state = worker();
+  state.fetch.mockRejectedValue(new TypeError("Offline"));
+  const event = navigation(
+    "https://example.test/offline-client.js",
+    "GET",
+    "cors",
+  );
   state.handlers.fetch(event);
-  expect(event.respondWith).not.toHaveBeenCalled();
-  expect(state.fetch).not.toHaveBeenCalled();
+  expect(await (await event.respondWith.mock.calls[0][0]).text()).toBe(
+    "Offline information",
+  );
+  expect(state.cache.match).toHaveBeenCalledWith("/offline-client.js");
+});
+
+test("loader network failures notify the requesting page without caching data or faking success", async () => {
+  const state = worker();
+  const postMessage = jest.fn();
+  state.self.clients.get = jest.fn().mockResolvedValue({ postMessage });
+  state.fetch.mockRejectedValue(new TypeError("Offline"));
+  const event = {
+    ...navigation("https://example.test/account.data", "GET", "cors"),
+    clientId: "page",
+    waitUntil: jest.fn(),
+  };
+  state.handlers.fetch(event);
+  await expect(event.respondWith.mock.calls[0][0]).rejects.toThrow("Offline");
+  await event.waitUntil.mock.calls[0][0];
+  expect(postMessage).toHaveBeenCalledWith({
+    type: "OMYQUANT_NETWORK_UNAVAILABLE",
+  });
   expect(state.caches.open).not.toHaveBeenCalled();
 });
 
@@ -66,7 +182,9 @@ test("network failure returns only the generic offline page and has a 503 fallba
   state.fetch.mockRejectedValue(new TypeError("Offline"));
   const event = navigation();
   state.handlers.fetch(event);
-  expect(await (await event.respondWith.mock.calls[0][0]).text()).toBe("Offline information");
+  expect(await (await event.respondWith.mock.calls[0][0]).text()).toBe(
+    "Offline information",
+  );
   expect(state.cache.match).toHaveBeenCalledWith("/offline.html");
   state.cache.match.mockResolvedValue(undefined);
   const missing = navigation();
@@ -75,20 +193,35 @@ test("network failure returns only the generic offline page and has a 503 fallba
 });
 
 test("production manifest, icons and root links support standalone installation", () => {
-  const manifest = JSON.parse(readFileSync("build/client/manifest.webmanifest", "utf8"));
-  expect(manifest).toMatchObject({ id: "/", start_url: "/", scope: "/", display: "standalone", name: "OMYQUANT" });
+  const manifest = JSON.parse(
+    readFileSync("build/client/manifest.webmanifest", "utf8"),
+  );
+  expect(manifest).toMatchObject({
+    id: "/",
+    start_url: "/",
+    scope: "/",
+    display: "standalone",
+    name: "OMYQUANT",
+  });
   for (const size of [192, 512]) {
-    const icon = manifest.icons.find(icon => icon.sizes === `${size}x${size}`);
+    const icon = manifest.icons.find(
+      (icon) => icon.sizes === `${size}x${size}`,
+    );
     expect(icon).toBeDefined();
     const png = readFileSync(`build/client${icon.src}`);
     expect(png.subarray(1, 4).toString()).toBe("PNG");
     expect(png.readUInt32BE(16)).toBe(size);
     expect(png.readUInt32BE(20)).toBe(size);
   }
-  expect(routes.root.module.links()).toEqual(expect.arrayContaining([
-    expect.objectContaining({ rel: "manifest", href: "/manifest.webmanifest" }),
-    expect.objectContaining({ rel: "apple-touch-icon", sizes: "180x180" }),
-  ]));
+  expect(routes.root.module.links()).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        rel: "manifest",
+        href: "/manifest.webmanifest",
+      }),
+      expect.objectContaining({ rel: "apple-touch-icon", sizes: "180x180" }),
+    ]),
+  );
   expect(existsSync("build/client/sw.js")).toBe(true);
   expect(existsSync("build/client/offline.html")).toBe(true);
 });
