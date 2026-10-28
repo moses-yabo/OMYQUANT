@@ -1,4 +1,8 @@
-import { SubmissionForm as Form, SubmissionButton, useSubmissionFeedback } from "../components/submission-feedback";
+import {
+  SubmissionForm as Form,
+  SubmissionButton,
+  useSubmissionFeedback,
+} from "../components/submission-feedback";
 import { Link, data, useNavigation, useFetcher, redirect } from "react-router";
 import type { Route } from "./+types/business";
 import { Shell } from "../components/shell";
@@ -100,8 +104,17 @@ export async function action({ request }: Route.ActionArgs) {
   const get = (key: string) => String(form.get(key) ?? "");
   const submissionKey = get("submissionKey") || undefined;
   if (get("intent") === "business" && submissionKey) {
-    try { businessSubmissionId("validation", submissionKey); }
-    catch { return data({ error: "Invalid submission key. Refresh the page and try again.", success: "" }, { status: 400 }); }
+    try {
+      businessSubmissionId("validation", submissionKey);
+    } catch {
+      return data(
+        {
+          error: "Invalid submission key. Refresh the page and try again.",
+          success: "",
+        },
+        { status: 400 },
+      );
+    }
   }
   let uploaded: { id: string; url: string } | undefined;
   let path: string;
@@ -215,8 +228,18 @@ export async function action({ request }: Route.ActionArgs) {
       { error: "Unknown business action.", success: "" },
       { status: 400 },
     );
-  const response = await api(request, path, "POST", payload, path === "businesses" ? submissionKey : undefined);
-  if (((response.status >= 400 && response.status < 500) || response.status === 200) && documents.length) {
+  const response = await api(
+    request,
+    path,
+    "POST",
+    payload,
+    path === "businesses" ? submissionKey : undefined,
+  );
+  if (
+    ((response.status >= 400 && response.status < 500) ||
+      response.status === 200) &&
+    documents.length
+  ) {
     const { default: mongoose } = await import("mongoose");
     for (const document of documents)
       await documentBucket()
@@ -274,10 +297,22 @@ export default function BusinessPage({
       formRef.current?.reset();
       setKind("AGRICULTURAL_SELLER");
       setSubmissionKey(crypto.randomUUID());
-      notify({ title: "Business Registration Submitted", message: registration.data.success });
-      window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+      notify({
+        title: "Business Registration Submitted",
+        message: registration.data.success,
+      });
+      window.scrollTo({
+        top: 0,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
+      });
     } else if (registration.data.error) {
-      notify({ title: "Unable to submit registration", message: registration.data.error, error: true });
+      notify({
+        title: "Unable to submit registration",
+        message: registration.data.error,
+        error: true,
+      });
     }
   }, [registration.state, registration.data, notify]);
   const [kind, setKind] = useState<BusinessKind>("AGRICULTURAL_SELLER");
@@ -368,7 +403,10 @@ export default function BusinessPage({
         <registration.Form
           ref={formRef}
           onSubmit={(event) => {
-            if (submittingRef.current) { event.preventDefault(); return; }
+            if (submittingRef.current) {
+              event.preventDefault();
+              return;
+            }
             submittingRef.current = true;
           }}
           method="post"
@@ -405,11 +443,12 @@ export default function BusinessPage({
               accept="application/pdf,image/png,image/jpeg,image/webp"
             />
             <small id="registration-document-formats" className="muted">
-              Accepted formats: PDF (.pdf), JPG/JPEG (.jpg, .jpeg), PNG (.png) and WebP (.webp). Upload 1–5 files, up to 5 MiB each.
+              Accepted formats: PDF (.pdf), JPG/JPEG (.jpg, .jpeg), PNG (.png)
+              and WebP (.webp). Upload 1–5 files, up to 5 MiB each.
             </small>
             <span className="muted">
-              {businessRegistry[kind].documents}.
-              Documents are private and available to reviewers.
+              {businessRegistry[kind].documents}. Documents are private and
+              available to reviewers.
             </span>
           </label>
           <label>
@@ -450,17 +489,41 @@ export default function BusinessPage({
             </label>
             <label>
               Physical operating address
-              <input name="address" required placeholder="Street number, street, suburb and town" /><span className="muted">Include a complete address. When configured, Geoapify converts it to a location for the administration map.</span>
+              <input
+                name="address"
+                required
+                placeholder="Street number, street, suburb and town"
+              />
+              <span className="muted">
+                Include a complete address. When configured, Geoapify converts
+                it to a location for the administration map.
+              </span>
             </label>
             <label>
               Province
               <Province />
             </label>
           </div>
-          {registration.state === "idle" && registration.data?.error && <p role="alert" className="notice error">{registration.data.error}</p>}
-          <SubmissionButton className="button full" disabled={disabled || registration.state !== "idle" || !submissionKey} aria-busy={registration.state !== "idle"}>
-            {registration.state !== "idle" ? "Submitting..." : "Create business"}
-            {registration.state !== "idle" ? <span className="submission-spinner" aria-hidden="true" /> : <Icon name="arrow" size={16} />}
+          {registration.state === "idle" && registration.data?.error && (
+            <p role="alert" className="notice error">
+              {registration.data.error}
+            </p>
+          )}
+          <SubmissionButton
+            className="button full"
+            disabled={
+              disabled || registration.state !== "idle" || !submissionKey
+            }
+            aria-busy={registration.state !== "idle"}
+          >
+            {registration.state !== "idle"
+              ? "Submitting..."
+              : "Create business"}
+            {registration.state !== "idle" ? (
+              <span className="submission-spinner" aria-hidden="true" />
+            ) : (
+              <Icon name="arrow" size={16} />
+            )}
           </SubmissionButton>
         </registration.Form>
         {(loaderData.preview ||

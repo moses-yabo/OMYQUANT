@@ -10,30 +10,63 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
-import { ThemeProvider, ThemeToggle } from './components/theme';
-import { themeBootstrap } from './lib/theme';
-import { SubmissionFeedbackProvider } from './components/submission-feedback';
+import { ThemeProvider, ThemeToggle } from "./components/theme";
+import { themeBootstrap } from "./lib/theme";
+import { SubmissionFeedbackProvider } from "./components/submission-feedback";
+import { PwaInstall } from "./components/pwa-install";
 import { api, result } from "./.server/frontend";
 import { demoEnabled } from "./.server/demo-mode";
-import { sessionToken } from './.server/modules/auth/auth';
-import type { Tool } from './.server/modules/business-tools';
+import { sessionToken } from "./.server/modules/auth/auth";
+import type { Tool } from "./.server/modules/business-tools";
 
 export async function loader({ request }: Route.LoaderArgs) {
   if (demoEnabled()) return { user: null, demo: true };
-  if (!await sessionToken(request))
+  if (!(await sessionToken(request)))
     return { user: null, demo: demoEnabled() };
   const response = await api(request, "users/me");
-  if (!response.ok && response.status !== 401) throw new Response('Unable to verify your account. Please try again shortly.', { status: response.status, statusText: 'Unable to verify your account. Please try again shortly.' });
-  const payload = await result<{ id: string; name: string; admin?: boolean; superAdmin?: boolean }>(response);
+  if (!response.ok && response.status !== 401)
+    throw new Response(
+      "Unable to verify your account. Please try again shortly.",
+      {
+        status: response.status,
+        statusText: "Unable to verify your account. Please try again shortly.",
+      },
+    );
+  const payload = await result<{
+    id: string;
+    name: string;
+    admin?: boolean;
+    superAdmin?: boolean;
+  }>(response);
   const pathname = new URL(request.url).pathname;
-  if (response.ok && payload.data?.superAdmin && pathname !== '/admin' && !pathname.startsWith('/admin/')) throw redirect('/admin');
+  if (
+    response.ok &&
+    payload.data?.superAdmin &&
+    pathname !== "/admin" &&
+    !pathname.startsWith("/admin/")
+  )
+    throw redirect("/admin");
   let workspaces: { id: string; name: string; tools: Tool[] }[] = [];
-  if (response.ok && payload.data && !payload.data.admin && !payload.data.superAdmin) {
-    const access = await api(request, 'business-workspaces');
-    if (!access.ok) throw new Response('Unable to verify business access', { status: access.status });
+  if (
+    response.ok &&
+    payload.data &&
+    !payload.data.admin &&
+    !payload.data.superAdmin
+  ) {
+    const access = await api(request, "business-workspaces");
+    if (!access.ok)
+      throw new Response("Unable to verify business access", {
+        status: access.status,
+      });
     workspaces = (await result<typeof workspaces>(access)).data ?? [];
-    const businessPage = pathname === '/business' || pathname.startsWith('/business/') || pathname === '/work' || pathname === '/support' || pathname.startsWith('/support/');
-    if (workspaces.length && !businessPage) throw redirect(`/business/${workspaces[0].id}/tools`);
+    const businessPage =
+      pathname === "/business" ||
+      pathname.startsWith("/business/") ||
+      pathname === "/work" ||
+      pathname === "/support" ||
+      pathname.startsWith("/support/");
+    if (workspaces.length && !businessPage)
+      throw redirect(`/business/${workspaces[0].id}/tools`);
   }
   return {
     workspaces,
@@ -44,18 +77,26 @@ export async function loader({ request }: Route.LoaderArgs) {
 export async function clientLoader({ serverLoader }: Route.ClientLoaderArgs) {
   const loaded = await serverLoader();
   if (!loaded.demo) return loaded;
-  try { const { currentBrowserUser } = await import('./lib/browser-auth'); return { ...loaded, user: await currentBrowserUser() }; }
-  catch { return { ...loaded, user: null }; }
+  try {
+    const { currentBrowserUser } = await import("./lib/browser-auth");
+    return { ...loaded, user: await currentBrowserUser() };
+  } catch {
+    return { ...loaded, user: null };
+  }
 }
 clientLoader.hydrate = true as const;
 // Root role data must not remain cached across client-side navigation after a
 // grant/revocation. Server loaders and protected APIs remain authoritative.
-export function shouldRevalidate() { return true; }
+export function shouldRevalidate() {
+  return true;
+}
 export function headers() {
   return { "Cache-Control": "no-store" };
 }
 
 export const links: Route.LinksFunction = () => [
+  { rel: "manifest", href: "/manifest.webmanifest" },
+  { rel: "apple-touch-icon", sizes: "180x180", href: "/images/apple-touch-icon.png" },
   { rel: "icon", type: "image/png", href: "/images/favicon.png?v=2" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -75,6 +116,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#005039" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="OMYQUANT" />
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
         <Meta />
         <Links />
@@ -92,7 +136,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <SubmissionFeedbackProvider><Outlet /></SubmissionFeedbackProvider>;
+  return (
+    <SubmissionFeedbackProvider>
+      <Outlet />
+      <PwaInstall />
+    </SubmissionFeedbackProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

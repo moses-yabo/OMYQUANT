@@ -1,6 +1,6 @@
 import { io, type Socket } from "socket.io-client";
-import { currentBrowserUser } from './browser-auth';
-import type { ServerEvents, ClientEvents } from '../../scripts/realtime';
+import { currentBrowserUser } from "./browser-auth";
+import type { ServerEvents, ClientEvents } from "../../scripts/realtime";
 import { samples } from "./marketplace";
 import {
   addBooking,
@@ -13,7 +13,9 @@ export const storageKey = "omyquant.bookings.v1";
 let socket: Socket<ServerEvents, ClientEvents> | undefined;
 export function localHistory(accountId?: string | null) {
   if (!accountId) return [];
-  return readBookings(localStorage.getItem(`${storageKey}:${accountId}`)).slice().reverse();
+  return readBookings(localStorage.getItem(`${storageKey}:${accountId}`))
+    .slice()
+    .reverse();
 }
 export function localListings(accountId?: string | null) {
   const bookings = localHistory(accountId);
@@ -21,7 +23,8 @@ export function localListings(accountId?: string | null) {
 }
 async function write<T>(change: (key: string) => T) {
   const user = await currentBrowserUser();
-  if (!user) throw new Error('Please sign in before creating or changing a booking.');
+  if (!user)
+    throw new Error("Please sign in before creating or changing a booking.");
   const key = `${storageKey}:${user.id}`;
   // Web Locks serializes read/validate/write across tabs sharing this origin.
   if (!navigator.locks)
@@ -36,7 +39,7 @@ async function write<T>(change: (key: string) => T) {
   });
 }
 export async function bookLocal(input: BookingInput) {
-  return write(key => {
+  return write((key) => {
     const { booking, bookings } = addBooking(
       readBookings(localStorage.getItem(key)),
       samples,
@@ -48,7 +51,7 @@ export async function bookLocal(input: BookingInput) {
   });
 }
 export async function updateLocal(id: string, status: string) {
-  return write(key => {
+  return write((key) => {
     const bookings = changeBooking(
       readBookings(localStorage.getItem(key)),
       id,
@@ -72,7 +75,12 @@ export function connectLocalRealtime(
   const current = socket;
   const changed = () => refresh();
   const storage = (event: StorageEvent) => {
-    if (event.key?.startsWith(storageKey + ':') || event.key === 'omyquant.session.v1' || event.key === null) refresh();
+    if (
+      event.key?.startsWith(storageKey + ":") ||
+      event.key === "omyquant.session.v1" ||
+      event.key === null
+    )
+      refresh();
   };
   current.on("connect", () => {
     state(true);
@@ -83,12 +91,12 @@ export function connectLocalRealtime(
   current.on("bookings:refresh", changed);
   window.addEventListener("storage", storage);
   window.addEventListener("omyquant:bookings-changed", changed);
-  window.addEventListener('omyquant:auth-changed', changed);
+  window.addEventListener("omyquant:auth-changed", changed);
   return () => {
     current.disconnect();
     if (socket === current) socket = undefined;
     window.removeEventListener("storage", storage);
     window.removeEventListener("omyquant:bookings-changed", changed);
-    window.removeEventListener('omyquant:auth-changed', changed);
+    window.removeEventListener("omyquant:auth-changed", changed);
   };
 }

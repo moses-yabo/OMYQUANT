@@ -1,0 +1,16 @@
+{
+  "id": "/",
+  "name": "OMYQUANT",
+  "short_name": "OMYQUANT",
+  "description": "Local farm goods, taxi trips, trailer rentals and logistics from independent providers.",
+  "lang": "en-ZA",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#005039",
+  "icons": [
+    { "src": "/images/pwa-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/images/pwa-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

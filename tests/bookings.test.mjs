@@ -1,14 +1,19 @@
-import { test } from '@jest/globals';
+import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { io as client } from "socket.io-client";
 import { attachRealtime } from "../scripts/realtime.ts";
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { resolve, sep } from 'node:path';
-import { once } from 'node:events';
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { resolve, sep } from "node:path";
+import { once } from "node:events";
 
-import { addBooking, available, changeBooking, readBookings } from '../app/lib/local-booking-store.ts';
+import {
+  addBooking,
+  available,
+  changeBooking,
+  readBookings,
+} from "../app/lib/local-booking-store.ts";
 const catalog = [
   {
     id: "taxi",
@@ -135,7 +140,7 @@ const wait = (socket, event) =>
   });
 test("Socket.IO relays refreshes only within the same browser room", async () => {
   const previousMongo = process.env.MONGODB_URI;
-  process.env.MONGODB_URI = 'mongodb://unused-in-room-test';
+  process.env.MONGODB_URI = "mongodb://unused-in-room-test";
   const server = createServer();
   const realtime = attachRealtime(server);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -169,25 +174,38 @@ test("Socket.IO relays refreshes only within the same browser room", async () =>
     const [error] = await wait(invalid, "connect_error");
     assert.match(error.message, /Invalid local booking room/);
   } finally {
-    if (previousMongo === undefined) delete process.env.MONGODB_URI; else process.env.MONGODB_URI = previousMongo;
+    if (previousMongo === undefined) delete process.env.MONGODB_URI;
+    else process.env.MONGODB_URI = previousMongo;
     clients.forEach((socket) => socket.disconnect());
     await new Promise((resolve) => realtime.close(resolve));
   }
 });
 test("production server serves React Router, static assets and Socket.IO together", async () => {
-  const root = resolve('.local'); await mkdir(root, { recursive: true });
-  const directory = await mkdtemp(resolve(root, 'server-test-'));
+  const root = resolve(".local");
+  await mkdir(root, { recursive: true });
+  const directory = await mkdtemp(resolve(root, "server-test-"));
   const child = spawn(process.execPath, ["build/runtime/server.js"], {
-    env: { ...process.env, PORT: "0", DEMO_MODE: "true", MONGODB_URI: "", LOCAL_AUTH_DIR: directory },
+    env: {
+      ...process.env,
+      PORT: "0",
+      DEMO_MODE: "true",
+      MONGODB_URI: "",
+      LOCAL_AUTH_DIR: directory,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let socket;
-  let startupOutput = '';
-  child.stderr.on('data', data => { startupOutput += data.toString(); });
+  let startupOutput = "";
+  child.stderr.on("data", (data) => {
+    startupOutput += data.toString();
+  });
   try {
     const url = await new Promise((resolve, reject) => {
       const timer = setTimeout(
-        () => reject(new Error(`Production server did not start. ${startupOutput}`)),
+        () =>
+          reject(
+            new Error(`Production server did not start. ${startupOutput}`),
+          ),
         15000,
       );
       child.once("error", (error) => {
@@ -222,7 +240,12 @@ test("production server serves React Router, static assets and Socket.IO togethe
     await wait(socket, "connect");
   } finally {
     socket?.disconnect();
-    if (child.exitCode === null && child.signalCode === null) { const exited = once(child, 'exit'); child.kill(); await exited; }
-    assert.ok(directory.startsWith(root + sep)); await rm(directory, { recursive: true, force: true });
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = once(child, "exit");
+      child.kill();
+      await exited;
+    }
+    assert.ok(directory.startsWith(root + sep));
+    await rm(directory, { recursive: true, force: true });
   }
 });

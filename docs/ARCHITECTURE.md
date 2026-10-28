@@ -17,7 +17,15 @@ OMYQUANT is a React Router Framework Mode modular monolith using React 19, React
 | Browser demo | `app/lib/local-bookings.ts`, `local-booking-store.ts`, `marketplace.ts` |
 | Realtime and production HTTP | `scripts/realtime.ts`, `scripts/server.ts` |
 
-The API dispatcher still contains several business workflows. Its domain directories are logical boundaries within one deployment, not separate services. Extract functions incrementally when justified; do not rewrite the dispatcher as part of documentation alignment.
+Domain directories are logical boundaries within one deployment. Keep further extractions incremental and preserve behavior.
+
+Optional Redis catalog query caching lives under `app/.server/cache/`. It stores only 30-second public search ID selections; provider eligibility and record contents remain live MongoDB reads. The discovery handler is the only caller. Private reads, authentication, taxi availability and mutations bypass the cache. Redis errors fail open to the existing database path. See [Redis setup and consistency limits](redis-cache.md).
+
+The API entry point now delegates endpoint handling to `app/.server/api/` modules for authentication, discovery, business management, resources, transport, bookings, rentals, logistics, orders and charter requests. `api.ts` retains mutation-origin checks, database connection, the public/authenticated boundary, ordered dispatch and common error handling. Shared JSON-body limits, response headers and pagination remain in `api/http.ts`. Each handler returns a response when matched and otherwise leaves the request body available for subsequent handlers. Domain permissions and transactions remain inside the corresponding handlers and existing domain services.
+
+Business-tool loaders/actions live in `app/.server/route-handlers/business-tools.ts`; the route retains its Framework Mode exports and UI. Their serialized data contract is in `app/lib/business-tool-data.ts`. Marketplace booking and rental dialog markup/hooks live in `app/components/listing-dialog.tsx`, with discovery and filtering remaining in the home route. These extractions preserve URLs and existing markup; they do not add services, dependencies or workflows.
+
+The business-tools route composes UI from `app/components/business-tools/`: overview statistics, the records panel, record cards, editing and status forms, and the creation form. Farming, rental, transport and logistics fields live in their respective component files; customer enquiries and delivery quote/assignment controls are separate record components. Components retain the existing form names, field order, multipart uploads, permissions and status choices. These UI visibility checks complement the existing server authorization and do not replace it. `tests/business-tools-ui.test.mjs` exercises the production SSR component with synthetic data; it does not establish browser interaction or MongoDB concurrency.
 
 ## Runtime modes and authentication
 

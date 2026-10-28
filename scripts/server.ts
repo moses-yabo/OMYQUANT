@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
-import { createRequestListener } from '@remix-run/node-fetch-server';
-import { createRequestHandler } from 'react-router';
+import { createRequestListener } from "@remix-run/node-fetch-server";
+import { createRequestHandler } from "react-router";
 import { attachRealtime } from "./realtime.js";
 import type { ServerBuild } from "react-router";
 const buildPath = "../server/index.js";
@@ -10,13 +10,17 @@ const build = (await import(buildPath)) as ServerBuild;
 
 const publicUrl = process.env.APP_ORIGIN || process.env.RENDER_EXTERNAL_URL;
 const publicOrigin = publicUrl ? new URL(publicUrl) : undefined;
-if (publicOrigin && !['http:', 'https:'].includes(publicOrigin.protocol)) throw new Error('APP_ORIGIN must be an HTTP or HTTPS URL');
+if (publicOrigin && !["http:", "https:"].includes(publicOrigin.protocol))
+  throw new Error("APP_ORIGIN must be an HTTP or HTTPS URL");
 if (publicOrigin) process.env.APP_ORIGIN = publicOrigin.origin;
 else if (!process.env.APP_ORIGIN) delete process.env.APP_ORIGIN;
 // Pin the externally visible origin when TLS terminates at Render's proxy.
 // Do not trust arbitrary Forwarded headers or disable React Router's CSRF check.
-const handleRequest = createRequestHandler(build, process.env.NODE_ENV ?? 'production');
-const app = createRequestListener(request => handleRequest(request), {
+const handleRequest = createRequestHandler(
+  build,
+  process.env.NODE_ENV ?? "production",
+);
+const app = createRequestListener((request) => handleRequest(request), {
   host: publicOrigin?.host,
   protocol: publicOrigin?.protocol,
   trustProxy: false,
@@ -31,6 +35,8 @@ const types: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".webp": "image/webp",
   ".woff2": "font/woff2",
+  ".webmanifest": "application/manifest+json",
+  ".html": "text/html; charset=utf-8",
 };
 const server = createServer(async (req, res) => {
   try {
@@ -51,6 +57,8 @@ const server = createServer(async (req, res) => {
         types[extname(path)] ?? "application/octet-stream",
       );
       res.setHeader("X-Content-Type-Options", "nosniff");
+      if (path === resolve(root, "sw.js") || path === resolve(root, "manifest.webmanifest") || path === resolve(root, "offline.html"))
+        res.setHeader("Cache-Control", "no-cache");
       if (path.startsWith(resolve(root, "assets") + sep))
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
       return res.end(req.method === "HEAD" ? undefined : await readFile(path));
@@ -61,13 +69,28 @@ const server = createServer(async (req, res) => {
     res.end("Invalid request");
   }
 });
-const io = attachRealtime(server, { async authenticateSupport(cookie) {
-  const response = await handleRequest(new Request(new URL('/api/v1/users/me', process.env.APP_ORIGIN ?? 'http://localhost'), { headers: { Cookie: cookie } }));
-  if (!response.ok) throw new Error('Authentication required');
-  const { data } = await response.json() as { data?: { _id: string; admin?: boolean; superAdmin?: boolean } };
-  if (!data?._id) throw new Error('Authentication required');
-  return { id: String(data._id), admin: Boolean(data.admin || data.superAdmin) };
-} });
+const io = attachRealtime(server, {
+  async authenticateSupport(cookie) {
+    const response = await handleRequest(
+      new Request(
+        new URL(
+          "/api/v1/users/me",
+          process.env.APP_ORIGIN ?? "http://localhost",
+        ),
+        { headers: { Cookie: cookie } },
+      ),
+    );
+    if (!response.ok) throw new Error("Authentication required");
+    const { data } = (await response.json()) as {
+      data?: { _id: string; admin?: boolean; superAdmin?: boolean };
+    };
+    if (!data?._id) throw new Error("Authentication required");
+    return {
+      id: String(data._id),
+      admin: Boolean(data.admin || data.superAdmin),
+    };
+  },
+});
 server.listen(Number(process.env.PORT ?? 3000), () => {
   const address = server.address();
   if (address && typeof address !== "string")

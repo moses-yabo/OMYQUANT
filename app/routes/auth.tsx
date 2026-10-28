@@ -1,40 +1,61 @@
-import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import {
+  SubmissionForm as Form,
+  SubmissionButton,
+} from "../components/submission-feedback";
 import { Link, data, redirect, useNavigation } from "react-router";
-import { useState } from 'react';
-import '../components/google-button.css';
+import { useState } from "react";
+import "../components/google-button.css";
 import type { Route } from "./+types/auth";
 import { Shell } from "../components/shell";
 import { Icon } from "../components/icon";
 import { api, mutationOrigin, result } from "../.server/frontend";
-import { demoEnabled } from '../.server/demo-mode';
-import { googleAvailability } from '../.server/modules/auth/google-provider';
-import { AuthIdentity, User } from '../.server/database/models';
+import { demoEnabled } from "../.server/demo-mode";
+import { googleAvailability } from "../.server/modules/auth/google-provider";
+import { AuthIdentity, User } from "../.server/database/models";
 const googleMessages: Record<string, string> = {
-  database_unavailable: 'Google sign-in cannot complete because the marketplace database is unreachable. Please try again once the connection is restored.',
-  account_exists: 'Sign in with your existing account first, then return to this page to link Google. Accounts are never linked just because their emails match.',
-  reauthenticate: 'Please sign in again with your existing password before linking Google.',
-  unavailable: 'Google sign-in is unavailable. Check the server configuration or use your existing sign-in method.',
-  failed: 'Google sign-in was cancelled, expired or could not be verified. Please try again.',
+  database_unavailable:
+    "Google sign-in cannot complete because the marketplace database is unreachable. Please try again once the connection is restored.",
+  account_exists:
+    "Sign in with your existing account first, then return to this page to link Google. Accounts are never linked just because their emails match.",
+  reauthenticate:
+    "Please sign in again with your existing password before linking Google.",
+  unavailable:
+    "Google sign-in is unavailable. Check the server configuration or use your existing sign-in method.",
+  failed:
+    "Google sign-in was cancelled, expired or could not be verified. Please try again.",
 };
 export async function loader({ params, request }: Route.LoaderArgs) {
   if (!["login", "register"].includes(params.mode))
     throw new Response("Page not found", { status: 404 });
   const google = googleAvailability(request);
   let canLink = false;
-  if (google.enabled && request.headers.get('Cookie')) {
-    const me = await api(request, 'users/me');
+  if (google.enabled && request.headers.get("Cookie")) {
+    const me = await api(request, "users/me");
     if (me.ok) {
       const current = await result<{ _id: string }>(me);
       if (current.data) {
         const [hasPassword, linked] = await Promise.all([
-          User.exists({ _id: current.data._id, passwordHash: { $type: 'string' } }),
-          AuthIdentity.exists({ user: current.data._id, provider: 'google' }),
+          User.exists({
+            _id: current.data._id,
+            passwordHash: { $type: "string" },
+          }),
+          AuthIdentity.exists({ user: current.data._id, provider: "google" }),
         ]);
         canLink = Boolean(hasPassword && !linked);
       }
     }
   }
-  return data({ local: demoEnabled(), google, canLink, googleError: googleMessages[new URL(request.url).searchParams.get('google') ?? ''] ?? '' }, { headers: { 'Cache-Control': 'no-store' } });
+  return data(
+    {
+      local: demoEnabled(),
+      google,
+      canLink,
+      googleError:
+        googleMessages[new URL(request.url).searchParams.get("google") ?? ""] ??
+        "",
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
 export function meta() {
   return [{ title: "Your account | OMYQUANT" }];
@@ -73,17 +94,35 @@ export async function action({ request, params }: Route.ActionArgs) {
     },
   });
 }
-export async function clientAction({ request, serverAction, params }: Route.ClientActionArgs) {
+export async function clientAction({
+  request,
+  serverAction,
+  params,
+}: Route.ClientActionArgs) {
   const form = await request.clone().formData();
-  if (form.get('local') !== 'true') return serverAction();
-  const { registerBrowser, loginBrowser, browserAuthError } = await import('../lib/browser-auth');
+  if (form.get("local") !== "true") return serverAction();
+  const { registerBrowser, loginBrowser, browserAuthError } =
+    await import("../lib/browser-auth");
   try {
-    const input = { email: String(form.get('email')), password: String(form.get('password')) };
-    if (params.mode === 'register') { await registerBrowser({ ...input, name: String(form.get('name')) }); return redirect('/login?registered=1'); }
-    await loginBrowser(input); return redirect('/account');
-  } catch (error) { return { error: browserAuthError(error) }; }
+    const input = {
+      email: String(form.get("email")),
+      password: String(form.get("password")),
+    };
+    if (params.mode === "register") {
+      await registerBrowser({ ...input, name: String(form.get("name")) });
+      return redirect("/login?registered=1");
+    }
+    await loginBrowser(input);
+    return redirect("/account");
+  } catch (error) {
+    return { error: browserAuthError(error) };
+  }
 }
-export default function Auth({ params, actionData, loaderData }: Route.ComponentProps) {
+export default function Auth({
+  params,
+  actionData,
+  loaderData,
+}: Route.ComponentProps) {
   const register = params.mode === "register";
   const navigation = useNavigation();
   const [googlePending, setGooglePending] = useState(false);
@@ -120,19 +159,78 @@ export default function Auth({ params, actionData, loaderData }: Route.Component
               {actionData.error}
             </p>
           )}
-          {loaderData.googleError && <p role="alert" className="notice error">{loaderData.googleError}</p>}
-          <Form method="post" action="/auth/google" reloadDocument onSubmit={() => setGooglePending(true)}>
-            <input type="hidden" name="intent" value={loaderData.canLink ? 'link' : 'login'} />
-            {loaderData.canLink && <label>Confirm your existing password to link Google<input name="password" type="password" autoComplete="current-password" required minLength={12} maxLength={128} /></label>}
-            <SubmissionButton type="submit" className="button full google-auth-button" disabled={!loaderData.google.enabled || googlePending} aria-busy={googlePending} aria-describedby={!loaderData.google.enabled ? 'google-unavailable' : undefined}>
-              <img className="google-auth-logo" src="/images/google-g.png" width="20" height="20" alt="" aria-hidden="true" />
-              <span aria-live="polite">{googlePending ? 'Connecting to Google…' : loaderData.canLink ? 'Link Google to your account' : 'Continue with Google'}</span>
+          {loaderData.googleError && (
+            <p role="alert" className="notice error">
+              {loaderData.googleError}
+            </p>
+          )}
+          <Form
+            method="post"
+            action="/auth/google"
+            reloadDocument
+            onSubmit={() => setGooglePending(true)}
+          >
+            <input
+              type="hidden"
+              name="intent"
+              value={loaderData.canLink ? "link" : "login"}
+            />
+            {loaderData.canLink && (
+              <label>
+                Confirm your existing password to link Google
+                <input
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  minLength={12}
+                  maxLength={128}
+                />
+              </label>
+            )}
+            <SubmissionButton
+              type="submit"
+              className="button full google-auth-button"
+              disabled={!loaderData.google.enabled || googlePending}
+              aria-busy={googlePending}
+              aria-describedby={
+                !loaderData.google.enabled ? "google-unavailable" : undefined
+              }
+            >
+              <img
+                className="google-auth-logo"
+                src="/images/google-g.png"
+                width="20"
+                height="20"
+                alt=""
+                aria-hidden="true"
+              />
+              <span aria-live="polite">
+                {googlePending
+                  ? "Connecting to Google…"
+                  : loaderData.canLink
+                    ? "Link Google to your account"
+                    : "Continue with Google"}
+              </span>
             </SubmissionButton>
-            {!loaderData.google.enabled && <p id="google-unavailable" className="muted">{loaderData.google.reason}</p>}
+            {!loaderData.google.enabled && (
+              <p id="google-unavailable" className="muted">
+                {loaderData.google.reason}
+              </p>
+            )}
           </Form>
           <Form method="post">
-            <input type="hidden" name="local" value={String(loaderData.local)}/>
-            {loaderData.local && <p className="notice">Browser-only demo account. Saved in localStorage on this browser; not server-verified authentication.</p>}
+            <input
+              type="hidden"
+              name="local"
+              value={String(loaderData.local)}
+            />
+            {loaderData.local && (
+              <p className="notice">
+                Browser-only demo account. Saved in localStorage on this
+                browser; not server-verified authentication.
+              </p>
+            )}
             {register && (
               <label>
                 Your name

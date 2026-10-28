@@ -1,4 +1,7 @@
-import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import {
+  SubmissionForm as Form,
+  SubmissionButton,
+} from "../components/submission-feedback";
 import { Link, data, useNavigation } from "react-router";
 import type { Route } from "./+types/request";
 import { Shell } from "../components/shell";
@@ -113,7 +116,12 @@ export default function RequestPage({
             </Link>
           </div>
         ) : (
-          <Form method="post" resetOnSuccess successMessage="Your request has been submitted. Follow its progress in your activity." className="form-panel">
+          <Form
+            method="post"
+            resetOnSuccess
+            successMessage="Your request has been submitted. Follow its progress in your activity."
+            className="form-panel"
+          >
             <h2>The journey details</h2>
             <div className="form-grid">
               <label>

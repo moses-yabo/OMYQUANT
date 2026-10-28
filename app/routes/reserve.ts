@@ -1,7 +1,7 @@
 import { data } from "react-router";
 import type { Route } from "./+types/reserve";
 import { api, configured, mutationOrigin, result } from "../.server/frontend";
-import { notifyBookingCreated } from '../lib/web-notifications';
+import { notifyBookingCreated } from "../lib/web-notifications";
 export async function action({ request }: Route.ActionArgs) {
   mutationOrigin(request);
   const form = await request.formData();
@@ -22,9 +22,15 @@ export async function action({ request }: Route.ActionArgs) {
     path = "rentals/reservations";
     payload = {
       trailer: id,
-      rateUnit: String(form.get('rateUnit') ?? 'day'),
-      start: form.get('rateUnit') === 'hour' ? `${form.get('start')}:00+02:00` : `${form.get("start")}T08:00:00+02:00`,
-      end: form.get('rateUnit') === 'hour' ? `${form.get('end')}:00+02:00` : `${form.get("end")}T08:00:00+02:00`,
+      rateUnit: String(form.get("rateUnit") ?? "day"),
+      start:
+        form.get("rateUnit") === "hour"
+          ? `${form.get("start")}:00+02:00`
+          : `${form.get("start")}T08:00:00+02:00`,
+      end:
+        form.get("rateUnit") === "hour"
+          ? `${form.get("end")}:00+02:00`
+          : `${form.get("end")}T08:00:00+02:00`,
     };
   } else if (kind === "products" || kind === "livestock") {
     path = "farming/orders";
@@ -40,7 +46,12 @@ export async function action({ request }: Route.ActionArgs) {
     };
   } else return data({ error: "Unknown listing type." }, { status: 400 });
   const response = await api(request, path, "POST", payload);
-  const parsed = await result<{ _id: string; departure?: string; startsAt?: string; vehicle?: string }>(response);
+  const parsed = await result<{
+    _id: string;
+    departure?: string;
+    startsAt?: string;
+    vehicle?: string;
+  }>(response);
   if (!response.ok)
     return data(
       {
@@ -56,7 +67,7 @@ export async function action({ request }: Route.ActionArgs) {
       kind === "trailers"
         ? "Reservation requested. The rental business will review it."
         : kind === "taxis"
-          ? `${parsed.data?.departure && parsed.data.departure !== id ? 'Your group is reserved on the next scheduled taxi for the same operator, route and fare.' : 'Your seats are reserved.'}${parsed.data?.startsAt ? ` Departure: ${new Date(parsed.data.startsAt).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })} (South African time).` : ''}`
+          ? `${parsed.data?.departure && parsed.data.departure !== id ? "Your group is reserved on the next scheduled taxi for the same operator, route and fare." : "Your seats are reserved."}${parsed.data?.startsAt ? ` Departure: ${new Date(parsed.data.startsAt).toLocaleString("en-ZA", { timeZone: "Africa/Johannesburg" })} (South African time).` : ""}`
           : "Your order has been placed.",
     reference: parsed.data?._id,
   };
@@ -68,9 +79,9 @@ export async function clientAction({
   const form = await request.clone().formData();
   if (form.get("demo") !== "true") {
     const response = await serverAction();
-    if ('reference' in response && response.reference) {
+    if ("reference" in response && response.reference) {
       const reference = response.reference;
-      void notifyBookingCreated(String(form.get('kind')), reference);
+      void notifyBookingCreated(String(form.get("kind")), reference);
     }
     return response;
   }
@@ -93,7 +104,7 @@ export async function clientAction({
       success:
         kind === "trailers"
           ? "Your trailer rental request is saved in this browser. You can simulate business approval in My rentals."
-          : kind === 'products' || kind === 'livestock'
+          : kind === "products" || kind === "livestock"
             ? "Your farmers’ market order has been placed and saved in this browser."
             : "Your seats have been reserved and saved in this browser.",
       reference: booking._id,

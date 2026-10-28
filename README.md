@@ -22,6 +22,10 @@ Verified providers can open **My business → Manage business** for farming/live
 
 Customers can opt into browser notifications for successful orders, seat bookings and trailer reservation requests while the app is open. Existing in-page confirmations remain available. See [notification setup and current limits](docs/notifications.md); pickup/drop-off and background Web Push remain future work.
 
+The website can also be installed as a home-screen web app. Eligible mobile browsers receive an install offer; iPhone/iPad visitors receive Add to Home Screen instructions. Installation requires HTTPS or localhost. Offline navigation shows a connection page; bookings and account operations still require internet. See [PWA installation and verification](docs/pwa.md).
+
+An optional Upstash Redis free-tier cache accelerates public catalog searches while MongoDB supplies fresh provider eligibility and listing contents. It is disabled until server credentials are configured and falls back to MongoDB on cache failure. See [Redis setup, consistency and limits](docs/redis-cache.md).
+
 To populate the connected MongoDB database with the existing sample catalog, use `npm run seed:preview` then `npm run seed`. The seed is insert-only and preserves existing inventory and accounts. See [sample data seeding](docs/seeding.md).
 
 Product images can be uploaded into Atlas GridFS from the existing business form. Listing photos are served through permission-aware image routes. Run `npm run images:migrate-samples` to move seeded listing images into GridFS; see [image storage](docs/images.md).

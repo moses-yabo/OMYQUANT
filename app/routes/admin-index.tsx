@@ -4,7 +4,7 @@ import { requireAdminPage } from "../.server/admin-access";
 import { administrationOverview } from "../.server/modules/admin";
 import { Shell } from "../components/shell";
 import "./admin-overview.css";
-import { AdminMapPreview } from '../components/admin-map-preview';
+import { AdminMapPreview } from "../components/admin-map-preview";
 
 type Review = {
   _id: string;
@@ -63,7 +63,17 @@ export default function AdministrationOverview({
           </Link>
         </div>
         <AdminMapPreview />
-    <section className="form-panel"><h2>Customer and business support</h2><p className="muted">Investigate broken or late deliveries, spoiled farm goods, sick livestock, booking problems and rental complaints. Reply to reporters and record private investigation notes.</p><Link className="button" to="/admin/support">Review support complaints</Link></section>
+        <section className="form-panel">
+          <h2>Customer and business support</h2>
+          <p className="muted">
+            Investigate broken or late deliveries, spoiled farm goods, sick
+            livestock, booking problems and rental complaints. Reply to
+            reporters and record private investigation notes.
+          </p>
+          <Link className="button" to="/admin/support">
+            Review support complaints
+          </Link>
+        </section>
         <section className="form-panel">
           <h2>Your responsibilities</h2>
           <div className="admin-overview-actions">

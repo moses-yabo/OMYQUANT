@@ -4,7 +4,7 @@ import { attachRealtime } from './scripts/realtime.ts';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  for (const key of ['MONGODB_URI', 'MONGODB_DB_USERNAME', 'MONGODB_PASSWORD', 'MONGODB_DB_NAME', 'APP_ORIGIN', 'DEMO_MODE', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI', 'GEOAPIFY_API_KEY']) {
+  for (const key of ['MONGODB_URI', 'MONGODB_DB_USERNAME', 'MONGODB_PASSWORD', 'MONGODB_DB_NAME', 'APP_ORIGIN', 'DEMO_MODE', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI', 'GEOAPIFY_API_KEY', 'REDIS_CACHE_ENABLED', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'REDIS_CACHE_NAMESPACE']) {
     if (env[key] !== undefined && process.env[key] === undefined) process.env[key] = env[key];
   }
   return {

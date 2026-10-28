@@ -1,16 +1,37 @@
-import { SubmissionForm as Form, SubmissionButton, useSubmissionOutcome } from "./submission-feedback";
-import { ThemeToggle } from './theme';
-import { Link, NavLink, useLocation, useNavigation, useSearchParams, useRouteLoaderData, useRevalidator,  } from "react-router";
+import {
+  SubmissionForm as Form,
+  SubmissionButton,
+  useSubmissionOutcome,
+} from "./submission-feedback";
+import { ThemeToggle } from "./theme";
+import {
+  Link,
+  NavLink,
+  useLocation,
+  useNavigation,
+  useSearchParams,
+  useRouteLoaderData,
+  useRevalidator,
+} from "react-router";
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "./icon";
 import { sections } from "../lib/marketplace";
 import { NotificationSettings } from "./notification-settings";
-import { SupportChat } from './support-chat';
-import { SupportActivityNotice } from './support-live-updates';
+import { SupportChat } from "./support-chat";
+import { SupportActivityNotice } from "./support-live-updates";
 import "./admin-navigation.css";
-import { businessToolLabels } from '../lib/business-tools';
-type Workspace = { business: { _id: string; name: string }; available: (keyof typeof businessToolLabels)[] };
-export function Shell({ children, workspace }: { children: React.ReactNode; workspace?: Workspace }) {
+import { businessToolLabels } from "../lib/business-tools";
+type Workspace = {
+  business: { _id: string; name: string };
+  available: (keyof typeof businessToolLabels)[];
+};
+export function Shell({
+  children,
+  workspace,
+}: {
+  children: React.ReactNode;
+  workspace?: Workspace;
+}) {
   useSubmissionOutcome();
   const [search] = useSearchParams();
   const current = search.get("section") ?? "all";
@@ -24,10 +45,22 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
       superAdmin?: boolean;
     } | null;
     demo?: boolean;
-    workspaces?: { id: string; name: string; tools: (keyof typeof businessToolLabels)[] }[];
+    workspaces?: {
+      id: string;
+      name: string;
+      tools: (keyof typeof businessToolLabels)[];
+    }[];
   }>("root");
-  const selectedWorkspace = root?.workspaces?.find(item => location.pathname.startsWith(`/business/${item.id}/`)) ?? root?.workspaces?.[0];
-  workspace ??= selectedWorkspace ? { business: { _id: selectedWorkspace.id, name: selectedWorkspace.name }, available: selectedWorkspace.tools } : undefined;
+  const selectedWorkspace =
+    root?.workspaces?.find((item) =>
+      location.pathname.startsWith(`/business/${item.id}/`),
+    ) ?? root?.workspaces?.[0];
+  workspace ??= selectedWorkspace
+    ? {
+        business: { _id: selectedWorkspace.id, name: selectedWorkspace.name },
+        available: selectedWorkspace.tools,
+      }
+    : undefined;
   const [connected, setConnected] = useState(false);
   const { revalidate } = useRevalidator();
   const refreshRef = useRef(revalidate);
@@ -68,45 +101,63 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
     location.pathname === "/"
       ? (categoryActivity ?? { label: "List your business", to: "/business" })
       : { label: "Explore marketplace", to: "/" };
-  if (isSuperAdmin || (isAdmin && location.pathname.startsWith('/admin')))
+  if (isSuperAdmin || (isAdmin && location.pathname.startsWith("/admin")))
     return (
       <div className="app-shell super-admin-shell">
         <aside className="sidebar">
-          <Link to={isSuperAdmin ? '/admin' : '/admin/businesses'} className="brand">
+          <Link
+            to={isSuperAdmin ? "/admin" : "/admin/businesses"}
+            className="brand"
+          >
             <span className="brand-mark">
               <Icon name="leaf" size={24} />
             </span>
             OMYQUANT<span className="brand-dot">.</span>
           </Link>
-          <div className="nav-label">{isSuperAdmin ? 'SUPER ADMINISTRATION' : 'ADMINISTRATION'}</div>
+          <div className="nav-label">
+            {isSuperAdmin ? "SUPER ADMINISTRATION" : "ADMINISTRATION"}
+          </div>
           <nav aria-label="Administration workspace">
-            <NavLink className="nav-item" to="/admin/support"><Icon name="box" />Support complaints</NavLink>
-            {isSuperAdmin && <NavLink className="nav-item" to="/admin" end>
-              <Icon name="grid" />
-              Overview
-            </NavLink>}
+            <NavLink className="nav-item" to="/admin/support">
+              <Icon name="box" />
+              Support complaints
+            </NavLink>
+            {isSuperAdmin && (
+              <NavLink className="nav-item" to="/admin" end>
+                <Icon name="grid" />
+                Overview
+              </NavLink>
+            )}
             <NavLink className="nav-item" to="/admin/businesses">
               <Icon name="store" />
               Verify businesses
             </NavLink>
-            <NavLink className="nav-item" to="/admin/map"><Icon name="pin" />Business map</NavLink>
-            {isSuperAdmin && <NavLink className="nav-item" to="/admin/users">
-              <Icon name="user" />
-              Manage administrators
-            </NavLink>}
+            <NavLink className="nav-item" to="/admin/map">
+              <Icon name="pin" />
+              Business map
+            </NavLink>
+            {isSuperAdmin && (
+              <NavLink className="nav-item" to="/admin/users">
+                <Icon name="user" />
+                Manage administrators
+              </NavLink>
+            )}
           </nav>
         </aside>
         <div className="app-main">
           <header className="topbar">
             <span className="topbar-label">Platform oversight</span>
-            <div className="topbar-actions"><ThemeToggle />
+            <div className="topbar-actions">
+              <ThemeToggle />
               <span className="sign-in">
                 <Icon name="user" size={17} />
                 {root?.user?.name}
               </span>
               <Form method="post" action="/account">
                 <input type="hidden" name="intent" value="logout" />
-                <SubmissionButton className="button outline small">Sign out</SubmissionButton>
+                <SubmissionButton className="button outline small">
+                  Sign out
+                </SubmissionButton>
               </Form>
             </div>
           </header>
@@ -117,39 +168,109 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
               aria-label="Loading page"
             />
           )}
-          {!location.pathname.startsWith('/admin/support') && <SupportActivityNotice />}
-          <main id="main-content" aria-busy={navigation.state !== "idle"}>{children}</main>
+          {!location.pathname.startsWith("/admin/support") && (
+            <SupportActivityNotice />
+          )}
+          <main id="main-content" aria-busy={navigation.state !== "idle"}>
+            {children}
+          </main>
           <footer className="footer">
             <span>© {new Date().getFullYear()} OMYQUANT</span>
-            <span>{isSuperAdmin ? 'Super administrator workspace' : 'Administrator workspace'}</span>
+            <span>
+              {isSuperAdmin
+                ? "Super administrator workspace"
+                : "Administrator workspace"}
+            </span>
           </footer>
         </div>
       </div>
     );
-  if (workspace) return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <Link className="brand" to={`/business/${workspace.business._id}/tools`}><span className="brand-mark"><Icon name="store" size={24} /></span>OMYQUANT<span className="brand-dot">.</span></Link>
-        <div className="nav-label">BUSINESS WORKSPACE</div>
-        <nav aria-label="Business management">
-          <Link className={`nav-item ${!search.has('tool') ? 'selected' : ''}`} to={`/business/${workspace.business._id}/tools`}>Business overview</Link>
-          {workspace.available.map(tool => <Link key={tool} className={`nav-item ${search.get('tool') === tool ? 'selected' : ''}`} to={`/business/${workspace.business._id}/tools?tool=${tool}`}>{businessToolLabels[tool]}</Link>)}
-          <Link className="nav-item" to={`/business/${workspace.business._id}/profile`}>Business profile and team</Link>
-          <Link className="nav-item" to="/business?view=all">My businesses</Link>
-          <Link className="nav-item" to="/business?register=1">Register another business</Link>
-          <Link className="nav-item" to="/work">My driver assignments</Link>
-          <Link className="nav-item" to="/support">Help and complaints</Link>
-        </nav>
-      </aside>
-      <div className="app-main">
-        <header className="topbar"><span className="topbar-label">{workspace.business.name}</span><div className="topbar-actions"><ThemeToggle /><Link className="button outline small" to="/business?view=all">Switch business</Link><Form method="post" action="/account"><input type="hidden" name="intent" value="logout" /><SubmissionButton className="button outline small">Sign out</SubmissionButton></Form></div></header>
-        {navigation.state !== 'idle' && <div className="navigation-progress" role="progressbar" aria-label="Loading page" />}
-        <main id="main-content" aria-busy={navigation.state !== "idle"}>{children}</main>
-        <footer className="footer"><span>OMYQUANT</span><span>Business management workspace</span></footer>
+  if (workspace)
+    return (
+      <div className="app-shell">
+        <aside className="sidebar">
+          <Link
+            className="brand"
+            to={`/business/${workspace.business._id}/tools`}
+          >
+            <span className="brand-mark">
+              <Icon name="store" size={24} />
+            </span>
+            OMYQUANT<span className="brand-dot">.</span>
+          </Link>
+          <div className="nav-label">BUSINESS WORKSPACE</div>
+          <nav aria-label="Business management">
+            <Link
+              className={`nav-item ${!search.has("tool") ? "selected" : ""}`}
+              to={`/business/${workspace.business._id}/tools`}
+            >
+              Business overview
+            </Link>
+            {workspace.available.map((tool) => (
+              <Link
+                key={tool}
+                className={`nav-item ${search.get("tool") === tool ? "selected" : ""}`}
+                to={`/business/${workspace.business._id}/tools?tool=${tool}`}
+              >
+                {businessToolLabels[tool]}
+              </Link>
+            ))}
+            <Link
+              className="nav-item"
+              to={`/business/${workspace.business._id}/profile`}
+            >
+              Business profile and team
+            </Link>
+            <Link className="nav-item" to="/business?view=all">
+              My businesses
+            </Link>
+            <Link className="nav-item" to="/business?register=1">
+              Register another business
+            </Link>
+            <Link className="nav-item" to="/work">
+              My driver assignments
+            </Link>
+            <Link className="nav-item" to="/support">
+              Help and complaints
+            </Link>
+          </nav>
+        </aside>
+        <div className="app-main">
+          <header className="topbar">
+            <span className="topbar-label">{workspace.business.name}</span>
+            <div className="topbar-actions">
+              <ThemeToggle />
+              <Link className="button outline small" to="/business?view=all">
+                Switch business
+              </Link>
+              <Form method="post" action="/account">
+                <input type="hidden" name="intent" value="logout" />
+                <SubmissionButton className="button outline small">
+                  Sign out
+                </SubmissionButton>
+              </Form>
+            </div>
+          </header>
+          {navigation.state !== "idle" && (
+            <div
+              className="navigation-progress"
+              role="progressbar"
+              aria-label="Loading page"
+            />
+          )}
+          <main id="main-content" aria-busy={navigation.state !== "idle"}>
+            {children}
+          </main>
+          <footer className="footer">
+            <span>OMYQUANT</span>
+            <span>Business management workspace</span>
+          </footer>
+        </div>
+        {!isAdmin && (
+          <SupportChat accountId={root?.user?._id ?? root?.user?.id} />
+        )}
       </div>
-      {!isAdmin && <SupportChat accountId={root?.user?._id ?? root?.user?.id} />}
-    </div>
-  );
+    );
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -213,7 +334,15 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
               Business verification
             </NavLink>
           )}
-          {root?.user && <NavLink className="nav-item" to={isAdmin ? '/admin/support' : '/support'}><Icon name="box" />{isAdmin ? 'Support complaints' : 'Help and complaints'}</NavLink>}
+          {root?.user && (
+            <NavLink
+              className="nav-item"
+              to={isAdmin ? "/admin/support" : "/support"}
+            >
+              <Icon name="box" />
+              {isAdmin ? "Support complaints" : "Help and complaints"}
+            </NavLink>
+          )}
           {isSuperAdmin && (
             <NavLink className="nav-item" to="/admin/users">
               <Icon name="store" />
@@ -242,7 +371,8 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
           <span className="topbar-label">
             A little closer. A lot more possible.
           </span>
-          <div className="topbar-actions"><ThemeToggle />
+          <div className="topbar-actions">
+            <ThemeToggle />
             <span className="location">
               <Icon name="pin" size={16} /> South Africa
             </span>
@@ -266,7 +396,9 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
             <NavLink className="button outline small" to="/admin/businesses">
               Verify businesses
             </NavLink>
-            <NavLink className="button outline small" to="/admin/support">Support complaints</NavLink>
+            <NavLink className="button outline small" to="/admin/support">
+              Support complaints
+            </NavLink>
             {isSuperAdmin && (
               <NavLink className="button outline small" to="/admin/users">
                 Manage administrators
@@ -281,8 +413,15 @@ export function Shell({ children, workspace }: { children: React.ReactNode; work
             aria-label="Loading page"
           />
         )}
-        <main id="main-content" aria-busy={navigation.state !== "idle"}>{children}</main>
-        {!root?.demo && !isAdmin && <SupportChat key={root?.user?.id ?? root?.user?._id ?? 'guest'} accountId={root?.user?.id ?? root?.user?._id} />}
+        <main id="main-content" aria-busy={navigation.state !== "idle"}>
+          {children}
+        </main>
+        {!root?.demo && !isAdmin && (
+          <SupportChat
+            key={root?.user?.id ?? root?.user?._id ?? "guest"}
+            accountId={root?.user?.id ?? root?.user?._id}
+          />
+        )}
         {root?.user && <NotificationSettings />}
         {root?.demo && (
           <p className="realtime-status" role="status">

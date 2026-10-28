@@ -1,4 +1,7 @@
-import { SubmissionForm as Form, SubmissionButton } from "../components/submission-feedback";
+import {
+  SubmissionForm as Form,
+  SubmissionButton,
+} from "../components/submission-feedback";
 import { data, Link, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/support";
 import { Shell } from "../components/shell";
