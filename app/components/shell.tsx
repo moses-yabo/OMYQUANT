@@ -22,6 +22,7 @@ import { SupportActivityNotice } from "./support-live-updates";
 import "./admin-navigation.css";
 import { businessToolLabels } from "../lib/business-tools";
 import { MobileNavigation } from "./mobile-navigation";
+import { connectPwaDisplayMode } from "../lib/pwa-display-mode";
 type Workspace = {
   business: { _id: string; name: string };
   available: (keyof typeof businessToolLabels)[];
@@ -34,6 +35,8 @@ export function Shell({
   workspace?: Workspace;
 }) {
   useSubmissionOutcome();
+  const [installedPwa, setInstalledPwa] = useState(false);
+  useEffect(() => connectPwaDisplayMode(setInstalledPwa), []);
   const [search] = useSearchParams();
   const current = search.get("section") ?? "all";
   const location = useLocation();
@@ -273,7 +276,7 @@ export function Shell({
       </div>
     );
   return (
-    <div className={`app-shell${!isAdmin ? " customer-mobile-shell" : ""}`}>
+    <div className={`app-shell${!isAdmin && installedPwa ? " customer-mobile-shell" : ""}`}>
       <aside className="sidebar">
         <Link to="/" className="brand">
           <span className="brand-mark">
@@ -439,7 +442,7 @@ export function Shell({
           </Link>
         </footer>
       </div>
-      {!isAdmin && <MobileNavigation signedIn={Boolean(root?.user)} />}
+      {!isAdmin && installedPwa && <MobileNavigation signedIn={Boolean(root?.user)} />}
     </div>
   );
 }

@@ -41,7 +41,7 @@ export function connectInstallPrompt(update: (mode: InstallMode) => void) {
     clearTimeout(timer);
     if (!suppressed()) timer = setTimeout(() => {
       if (!suppressed()) update(mode);
-    }, 8000);
+    }, 4000);
   };
   const beforeInstall = (event: Event) => {
     if (!supported || installedApp()) return;

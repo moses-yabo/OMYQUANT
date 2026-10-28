@@ -10,7 +10,10 @@ beforeEach(() => {
   process.env.DEMO_MODE = "false";
 });
 afterEach(() => {
-  for (const [key, value] of [["MONGODB_URI", saved.uri], ["DEMO_MODE", saved.demo]]) {
+  for (const [key, value] of [
+    ["MONGODB_URI", saved.uri],
+    ["DEMO_MODE", saved.demo],
+  ]) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
@@ -26,25 +29,42 @@ test.each([
   ["/account", "", "", "Account"],
   ["/login", "", "", "Account"],
   ["/register", "", "", "Account"],
-])("%s %s %s has one active mobile destination", (pathname, search, hash, label) => {
-  expect(customerMobileTabs(pathname, search, hash, true).filter(tab => tab.active).map(tab => tab.label)).toEqual([label]);
-});
+])(
+  "%s %s %s has one active mobile destination",
+  (pathname, search, hash, label) => {
+    expect(
+      customerMobileTabs(pathname, search, hash, true)
+        .filter((tab) => tab.active)
+        .map((tab) => tab.label),
+    ).toEqual([label]);
+  },
+);
 
 test("guest Account retains login and signed-in Account retains the existing account route", () => {
-  expect(customerMobileTabs("/", "", "", false).find(tab => tab.label === "Account").to).toBe("/login");
-  expect(customerMobileTabs("/", "", "", true).find(tab => tab.label === "Account").to).toBe("/account");
-  expect(customerMobileTabs("/", "", "", false).find(tab => tab.label === "Activity").to).toBe("/account#orders");
+  expect(
+    customerMobileTabs("/", "", "", false).find(
+      (tab) => tab.label === "Account",
+    ).to,
+  ).toBe("/login");
+  expect(
+    customerMobileTabs("/", "", "", true).find((tab) => tab.label === "Account")
+      .to,
+  ).toBe("/account");
+  expect(
+    customerMobileTabs("/", "", "", false).find(
+      (tab) => tab.label === "Activity",
+    ).to,
+  ).toBe("/account#orders");
 });
 
-test("customer SSR includes accessible mobile tabs with existing destinations", async () => {
+test("browser SSR retains normal navigation until a standalone PWA window is detected", async () => {
   const handle = createRequestHandler(build, "production");
   const response = await handle(new Request("http://localhost/login"));
   expect(response.status).toBe(200);
   const html = await response.text();
-  const nav = html.match(/<nav[^>]*aria-label="Mobile navigation"[\s\S]*?<\/nav>/)?.[0];
-  expect(nav).toBeDefined();
-  for (const path of ["/", "/?saved=1#listings", "/account#orders", "/login"]) expect(nav).toContain(`href="${path}"`);
-  expect(nav.match(/aria-current="page"/g)).toHaveLength(1);
+  expect(html).not.toContain('aria-label="Mobile navigation"');
+  expect(html).not.toContain("customer-mobile-shell");
+  expect(html).toContain('aria-label="Marketplace"');
 });
 
 test("provider workspaces retain their service navigation without customer mobile tabs", () => {

@@ -42,7 +42,7 @@ test("mobile offer waits before showing and only the Install action invokes the 
   controller = connectInstallPrompt(update);
   const event = offer();
   expect(event.defaultPrevented).toBe(true);
-  jest.advanceTimersByTime(7999);
+  jest.advanceTimersByTime(3999);
   expect(update).not.toHaveBeenCalled();
   jest.advanceTimersByTime(1);
   expect(update).toHaveBeenLastCalledWith("native");
@@ -61,13 +61,13 @@ test("Not now suppresses offers across visits until the seven-day cooldown expir
   update.mockClear();
   controller = connectInstallPrompt(update);
   offer();
-  jest.advanceTimersByTime(8000);
+  jest.advanceTimersByTime(4000);
   expect(update).not.toHaveBeenCalled();
   controller.dispose();
   jest.advanceTimersByTime(7 * 86400000);
   controller = connectInstallPrompt(update);
   offer();
-  jest.advanceTimersByTime(8000);
+  jest.advanceTimersByTime(4000);
   expect(update).toHaveBeenLastCalledWith("native");
 });
 
@@ -76,7 +76,7 @@ test.each(["iPhone", "iPad-desktop"])("%s receives manual home-screen instructio
   device.platform = kind === "iPhone" ? "iPhone" : "MacIntel";
   device.maxTouchPoints = 5;
   controller = connectInstallPrompt(update);
-  jest.advanceTimersByTime(8000);
+  jest.advanceTimersByTime(4000);
   expect(update).toHaveBeenLastCalledWith("ios");
 });
 
@@ -90,7 +90,7 @@ test.each(["standalone", "ios-installed", "insecure", "desktop"])("%s suppresses
   }
   controller = connectInstallPrompt(update);
   const event = offer();
-  jest.advanceTimersByTime(8000);
+  jest.advanceTimersByTime(4000);
   expect(update).not.toHaveBeenCalled();
   expect(event.defaultPrevented).toBe(false);
 });
@@ -100,11 +100,11 @@ test("installation and cleanup cancel a scheduled offer", () => {
   offer();
   browser.dispatchEvent(new Event("appinstalled"));
   update.mockClear();
-  jest.advanceTimersByTime(8000);
+  jest.advanceTimersByTime(4000);
   expect(update).not.toHaveBeenCalled();
   controller.dispose();
   offer();
-  jest.advanceTimersByTime(8000);
+  jest.advanceTimersByTime(4000);
   expect(update).not.toHaveBeenCalled();
 });
 
@@ -112,13 +112,13 @@ test("unavailable storage does not break installation or dismissal", async () =>
   Object.defineProperty(globalThis, "localStorage", { configurable: true, get() { throw new Error("Blocked"); } });
   controller = connectInstallPrompt(update);
   const event = offer("dismissed");
-  jest.advanceTimersByTime(8000);
+  jest.advanceTimersByTime(4000);
   await controller.install();
   expect(event.prompt).toHaveBeenCalledTimes(1);
   expect(update).toHaveBeenLastCalledWith("hidden");
   offer();
   update.mockClear();
-  jest.advanceTimersByTime(8000);
+  jest.advanceTimersByTime(4000);
   expect(update).not.toHaveBeenCalled();
 });
 

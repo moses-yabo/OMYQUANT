@@ -4,7 +4,7 @@ OMYQUANT remains the same React Router website. Its web manifest requests a stan
 
 ## Mobile installation
 
-On HTTPS (or localhost), eligible mobile browsers that dispatch `beforeinstallprompt` receive a small install card after eight seconds. **Install app** invokes the browser's native installation dialog from that explicit tap. The browser decides whether installation is available and the user confirms it; the site cannot force a download or open that native dialog automatically. Desktop browsers retain their own installation UI.
+On HTTPS (or localhost), eligible mobile browsers that dispatch `beforeinstallprompt` receive a small install card after four seconds. **Install app** invokes the browser's native installation dialog from that explicit tap. The browser decides whether installation is available and the user confirms it; the site cannot force a download or open that native dialog automatically. Desktop browsers retain their own installation UI.
 
 iPhone/iPad visitors receive instructions to open **Share → Add to Home Screen → Add**, keeping **Open as Web App** enabled if offered. Available menu items depend on the browser and OS. There is no fake iOS native Install button. Already installed standalone windows do not show the card. Dismissing it pauses offers for seven days in that browser; if storage is blocked, dismissal still works for the current visit. Native prompt failures fall back to browser-menu instructions.
 
@@ -22,7 +22,7 @@ After deploying, test `/apple-touch-icon.png?v=3` and the matching startup PNG d
 
 ## Mobile app presentation
 
-At phone widths up to 650px, the customer shell uses bottom tabs for Marketplace, Saved, Activity and Account. Activity opens the existing account orders anchor; Account opens the account page or login for guests. The existing brand/header remains, while duplicate sidebar navigation is hidden at this width. Business and administration workspaces keep their existing service/administration navigation and do not receive customer tabs. Desktop layouts and URLs remain unchanged.
+At phone widths up to 650px, an installed standalone PWA uses customer bottom tabs for Marketplace, Saved, Activity and Account. Regular mobile browser tabs keep the existing website navigation. Standalone detection uses the display-mode media query with the iOS navigator.standalone fallback, and updates on display changes/page restoration; installing from a browser tab does not change that tab's layout. Activity opens the existing account orders anchor; Account opens the account page or login for guests. The brand/header remains, while duplicate sidebar navigation is hidden only in the installed phone layout. Business and administration workspaces keep their existing navigation and do not receive customer tabs. Desktop and laptop layouts remain unchanged.
 
 Listing dialogs become bottom sheets on phones, with a sticky close control, safe-area spacing, larger form controls and a short entrance animation that respects reduced motion. Native dialog focus containment, Escape/cancel handling and existing booking actions remain in place. The sheet is scrollable; the visual handle does not implement swipe dismissal. Customer support and the install card sit above the bottom tabs. All added surfaces use existing theme variables. Test keyboard, screen-reader, on-screen-keyboard, rotation and back-navigation behavior on actual iOS/Android devices before release; SSR/unit tests do not establish native-device UX.
 
