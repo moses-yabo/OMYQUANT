@@ -4,11 +4,13 @@ OMYQUANT remains the same React Router website. Its web manifest requests a stan
 
 ## Mobile installation
 
-On HTTPS (or localhost), eligible mobile browsers that dispatch `beforeinstallprompt` receive a small install card after four seconds. **Install app** invokes the browser's native installation dialog from that explicit tap. The browser decides whether installation is available and the user confirms it; the site cannot force a download or open that native dialog automatically. Desktop browsers retain their own installation UI.
+On HTTPS (or localhost), mobile visitors receive a small install card after four seconds, unless installed or dismissed. Android shows browser-menu instructions if `beforeinstallprompt` has not arrived; a later event immediately upgrades the card to **Install app**, without restarting the delay. **Install app** invokes the browser's native installation dialog from that explicit tap. The browser decides whether installation is available and the user confirms it; the site cannot force a download or open that native dialog automatically. Desktop browsers retain their own installation UI.
 
 iPhone/iPad visitors receive instructions to open **Share → Add to Home Screen → Add**, keeping **Open as Web App** enabled if offered. Available menu items depend on the browser and OS. There is no fake iOS native Install button. Already installed standalone windows do not show the card. Dismissing it pauses offers for seven days in that browser; if storage is blocked, dismissal still works for the current visit. Native prompt failures fall back to browser-menu instructions.
 
 The install card sits at the bottom left with device safe-area spacing and follows the current light/dark/system theme, including its buttons and instruction panel. iOS and manual installation guidance uses numbered steps. Buttons and the dismiss control have a minimum 44px touch target; short viewports can scroll the card without changing the page layout.
+
+Android guidance asks for **Install app**, rather than treating **Create shortcut** as a successful PWA installation. Without a browser-provided install event, the card only gives instructions; its controller cannot invoke installation or mark it successful. Android packaging (WebAPK, shortcut or another format) depends on the browser/device and cannot be forced by website code. Verify the installed icon launches a standalone window without a browser address bar; ordinary shortcuts opening browser tabs keep website navigation. See [browser installation formats](https://web.dev/learn/pwa/installation).
 
 The root-level controller is mounted after hydration, removes its listeners/timers on cleanup and never requests notification permission. Existing browser notifications retain their separate opt-in and worker. HTTPS is needed on a physical phone; an HTTP LAN address used for local development is not a secure context.
 

@@ -18,6 +18,7 @@ export function connectInstallPrompt(update: (mode: InstallMode) => void) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let dismissed = false;
   let disposed = false;
+  let delayElapsed = false;
   const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const mobile = ios || /Android/i.test(navigator.userAgent) || window.matchMedia("(pointer: coarse)").matches;
@@ -37,17 +38,14 @@ export function connectInstallPrompt(update: (mode: InstallMode) => void) {
     catch { /* Keep this visit usable when browser storage is unavailable. */ }
     hide();
   };
-  const schedule = (mode: InstallMode) => {
-    clearTimeout(timer);
-    if (!suppressed()) timer = setTimeout(() => {
-      if (!suppressed()) update(mode);
-    }, 4000);
+  const show = () => {
+    if (!suppressed()) update(deferred ? "native" : ios ? "ios" : "manual");
   };
   const beforeInstall = (event: Event) => {
     if (!supported || installedApp()) return;
     event.preventDefault();
     deferred = event as InstallEvent;
-    schedule("native");
+    if (delayElapsed) show();
   };
   const installed = () => {
     deferred = undefined;
@@ -63,7 +61,10 @@ export function connectInstallPrompt(update: (mode: InstallMode) => void) {
   window.addEventListener("appinstalled", installed);
   window.addEventListener("storage", storageChanged);
   display.addEventListener("change", displayChanged);
-  if (ios) schedule("ios");
+  if (!suppressed()) timer = setTimeout(() => {
+    delayElapsed = true;
+    show();
+  }, 4000);
   return {
     dismiss,
     async install() {

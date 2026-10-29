@@ -79,17 +79,24 @@ export function PwaInstall() {
         </>
       )}
       {mode === "manual" && (
-        <ol className="pwa-install-steps">
-          <li>
-            <span>Open your browser’s menu.</span>
-          </li>
-          <li>
-            <span>
-              Choose <strong>Install app</strong> or{" "}
-              <strong>Add to Home screen</strong>, if available.
-            </span>
-          </li>
-        </ol>
+        <>
+          <ol className="pwa-install-steps">
+            <li>
+              <span>Open your browser’s menu.</span>
+            </li>
+            <li>
+              <span>
+                Choose <strong>Install app</strong>, if available, and confirm
+                installation.
+              </span>
+            </li>
+          </ol>
+          <p className="pwa-install-hint">
+            If you only see Create shortcut, app installation is not available
+            yet. Open this site directly in Chrome or Edge and try again. A
+            shortcut may open a browser tab instead of the app.
+          </p>
+        </>
       )}
       <div className="pwa-install-actions">
         {mode === "native" && (

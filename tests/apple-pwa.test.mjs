@@ -51,12 +51,13 @@ test("initial server-rendered HTML exposes icon and launch links before JavaScri
   expect(response.status).toBe(200);
   const head = (await response.text()).match(/<head>[\s\S]*?<\/head>/)?.[0];
   expect(head).toContain('rel="apple-touch-icon"');
+  expect(head).toContain('rel="manifest" href="/manifest.webmanifest"');
   expect(head).toContain('href="/apple-touch-icon.png?v=3"');
   expect(head.match(/rel="apple-touch-startup-image"/g)).toHaveLength(sizes.length * 2);
   expect(head).toContain('name="apple-mobile-web-app-capable" content="yes"');
 });
 
-test("production HTTP serves Apple fallback icons and launch PNGs without authentication", async () => {
+test("production HTTP serves the manifest, worker, Android icons and Apple assets without authentication", async () => {
   const child = spawn(process.execPath, ["build/runtime/server.js"], {
     env: { ...process.env, PORT: "0", NODE_ENV: "production", MONGODB_URI: "", DEMO_MODE: "false", APP_ORIGIN: "http://127.0.0.1" },
     stdio: ["ignore", "pipe", "ignore"],
@@ -71,6 +72,40 @@ test("production HTTP serves Apple fallback icons and launch PNGs without authen
         if (match) { clearTimeout(timer); resolve(match[1]); }
       });
     });
+    const origin = `http://127.0.0.1:${port}`;
+    const manifestResponse = await fetch(`${origin}/manifest.webmanifest`);
+    expect(manifestResponse.status).toBe(200);
+    expect(manifestResponse.redirected).toBe(false);
+    expect(manifestResponse.headers.get("Content-Type")).toBe("application/manifest+json");
+    expect(manifestResponse.headers.get("Cache-Control")).toBe("no-cache");
+    const manifest = await manifestResponse.json();
+    expect(manifest).toMatchObject({ id: "/", name: "OMYQUANT", short_name: "OMYQUANT", start_url: "/", scope: "/", display: "standalone" });
+    const launch = new URL(manifest.start_url, origin);
+    expect(launch.origin).toBe(origin);
+    expect(launch.pathname.startsWith(manifest.scope)).toBe(true);
+    expect((await fetch(launch)).status).toBe(200);
+    for (const size of [192, 512]) {
+      const icon = manifest.icons.find(icon => icon.sizes === `${size}x${size}`);
+      expect(icon).toMatchObject({ type: "image/png", purpose: "any" });
+      const response = await fetch(new URL(icon.src, origin));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe("image/png");
+      const bytes = Buffer.from(await response.arrayBuffer());
+      expect(bytes.subarray(1, 4).toString()).toBe("PNG");
+      expect(bytes.readUInt32BE(16)).toBe(size);
+      expect(bytes.readUInt32BE(20)).toBe(size);
+    }
+    for (const [path, type] of [["/manifest.webmanifest", "application/manifest+json"], ["/sw.js", "text/javascript"]]) {
+      const response = await fetch(`${origin}${path}`, { method: "HEAD" });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Type")).toBe(type);
+      expect(response.headers.get("Cache-Control")).toBe("no-cache");
+      expect(await response.text()).toBe("");
+    }
+    const worker = await fetch(`${origin}/sw.js`);
+    expect(worker.status).toBe(200);
+    expect(worker.headers.get("Content-Type")).toBe("text/javascript");
+    expect(await worker.text()).toContain('self.addEventListener');
     for (const [path, width, height] of [
       ["/apple-touch-icon.png?v=3", 180, 180],
       ["/apple-touch-icon-precomposed.png", 180, 180],

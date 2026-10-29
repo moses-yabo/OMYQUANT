@@ -1,23 +1,49 @@
 import { afterEach, beforeEach, expect, jest, test } from "@jest/globals";
-import { connectInstallPrompt, installDismissKey, registerPwaWorker } from "../app/lib/pwa-install.ts";
+import {
+  connectInstallPrompt,
+  installDismissKey,
+  registerPwaWorker,
+} from "../app/lib/pwa-install.ts";
 
-const descriptors = Object.fromEntries(["window", "navigator", "localStorage"].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+const descriptors = Object.fromEntries(
+  ["window", "navigator", "localStorage"].map((key) => [
+    key,
+    Object.getOwnPropertyDescriptor(globalThis, key),
+  ]),
+);
 let browser, device, storage, media, update, controller;
 beforeEach(() => {
   jest.useFakeTimers();
   browser = new EventTarget();
   media = new Map();
   browser.isSecureContext = true;
-  browser.matchMedia = query => {
-    if (!media.has(query)) media.set(query, Object.assign(new EventTarget(), { matches: query === "(pointer: coarse)" }));
+  browser.matchMedia = (query) => {
+    if (!media.has(query))
+      media.set(
+        query,
+        Object.assign(new EventTarget(), {
+          matches: query === "(pointer: coarse)",
+        }),
+      );
     return media.get(query);
   };
-  device = { userAgent: "Android", platform: "Linux", maxTouchPoints: 1, serviceWorker: { register: jest.fn().mockResolvedValue({}) } };
+  device = {
+    userAgent: "Android",
+    platform: "Linux",
+    maxTouchPoints: 1,
+    serviceWorker: { register: jest.fn().mockResolvedValue({}) },
+  };
   storage = new Map();
   Object.defineProperties(globalThis, {
     window: { configurable: true, value: browser },
     navigator: { configurable: true, value: device },
-    localStorage: { configurable: true, value: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } },
+    localStorage: {
+      configurable: true,
+      value: {
+        getItem: (key) => storage.get(key) ?? null,
+        setItem: (key, value) => storage.set(key, value),
+      },
+    },
   });
   update = jest.fn();
 });
@@ -53,10 +79,44 @@ test("mobile offer waits before showing and only the Install action invokes the 
   expect(update).toHaveBeenLastCalledWith("hidden");
 });
 
+test("Android shows menu instructions after four seconds without a browser install event", () => {
+  controller = connectInstallPrompt(update);
+  jest.advanceTimersByTime(3999);
+  expect(update).not.toHaveBeenCalled();
+  jest.advanceTimersByTime(1);
+  expect(update).toHaveBeenLastCalledWith("manual");
+});
+
+test("a delayed browser offer uses the original four-second deadline", () => {
+  controller = connectInstallPrompt(update);
+  jest.advanceTimersByTime(3000);
+  offer();
+  jest.advanceTimersByTime(1000);
+  expect(update).toHaveBeenLastCalledWith("native");
+});
+
+test("a late browser offer upgrades the visible instructions without another delay", () => {
+  controller = connectInstallPrompt(update);
+  jest.advanceTimersByTime(4000);
+  expect(update).toHaveBeenLastCalledWith("manual");
+  const event = offer();
+  expect(update).toHaveBeenLastCalledWith("native");
+  expect(event.prompt).not.toHaveBeenCalled();
+});
+
+test("cleanup cancels the Android fallback even without a browser offer", () => {
+  controller = connectInstallPrompt(update);
+  controller.dispose();
+  jest.advanceTimersByTime(4000);
+  expect(update).not.toHaveBeenCalled();
+});
+
 test("Not now suppresses offers across visits until the seven-day cooldown expires", () => {
   controller = connectInstallPrompt(update);
   controller.dismiss();
-  expect(Number(storage.get(installDismissKey))).toBe(Date.now() + 7 * 86400000);
+  expect(Number(storage.get(installDismissKey))).toBe(
+    Date.now() + 7 * 86400000,
+  );
   controller.dispose();
   update.mockClear();
   controller = connectInstallPrompt(update);
@@ -71,29 +131,36 @@ test("Not now suppresses offers across visits until the seven-day cooldown expir
   expect(update).toHaveBeenLastCalledWith("native");
 });
 
-test.each(["iPhone", "iPad-desktop"])("%s receives manual home-screen instructions without a native event", kind => {
-  device.userAgent = kind === "iPhone" ? "iPhone Safari" : "Macintosh Safari";
-  device.platform = kind === "iPhone" ? "iPhone" : "MacIntel";
-  device.maxTouchPoints = 5;
-  controller = connectInstallPrompt(update);
-  jest.advanceTimersByTime(4000);
-  expect(update).toHaveBeenLastCalledWith("ios");
-});
+test.each(["iPhone", "iPad-desktop"])(
+  "%s receives manual home-screen instructions without a native event",
+  (kind) => {
+    device.userAgent = kind === "iPhone" ? "iPhone Safari" : "Macintosh Safari";
+    device.platform = kind === "iPhone" ? "iPhone" : "MacIntel";
+    device.maxTouchPoints = 5;
+    controller = connectInstallPrompt(update);
+    jest.advanceTimersByTime(4000);
+    expect(update).toHaveBeenLastCalledWith("ios");
+  },
+);
 
-test.each(["standalone", "ios-installed", "insecure", "desktop"])("%s suppresses the custom offer", kind => {
-  if (kind === "standalone") browser.matchMedia("(display-mode: standalone)").matches = true;
-  if (kind === "ios-installed") device.standalone = true;
-  if (kind === "insecure") browser.isSecureContext = false;
-  if (kind === "desktop") {
-    device.userAgent = "Desktop browser";
-    browser.matchMedia("(pointer: coarse)").matches = false;
-  }
-  controller = connectInstallPrompt(update);
-  const event = offer();
-  jest.advanceTimersByTime(4000);
-  expect(update).not.toHaveBeenCalled();
-  expect(event.defaultPrevented).toBe(false);
-});
+test.each(["standalone", "ios-installed", "insecure", "desktop"])(
+  "%s suppresses the custom offer",
+  (kind) => {
+    if (kind === "standalone")
+      browser.matchMedia("(display-mode: standalone)").matches = true;
+    if (kind === "ios-installed") device.standalone = true;
+    if (kind === "insecure") browser.isSecureContext = false;
+    if (kind === "desktop") {
+      device.userAgent = "Desktop browser";
+      browser.matchMedia("(pointer: coarse)").matches = false;
+    }
+    controller = connectInstallPrompt(update);
+    const event = offer();
+    jest.advanceTimersByTime(4000);
+    expect(update).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  },
+);
 
 test("installation and cleanup cancel a scheduled offer", () => {
   controller = connectInstallPrompt(update);
@@ -109,7 +176,12 @@ test("installation and cleanup cancel a scheduled offer", () => {
 });
 
 test("unavailable storage does not break installation or dismissal", async () => {
-  Object.defineProperty(globalThis, "localStorage", { configurable: true, get() { throw new Error("Blocked"); } });
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    get() {
+      throw new Error("Blocked");
+    },
+  });
   controller = connectInstallPrompt(update);
   const event = offer("dismissed");
   jest.advanceTimersByTime(4000);
@@ -122,6 +194,16 @@ test("unavailable storage does not break installation or dismissal", async () =>
   expect(update).not.toHaveBeenCalled();
 });
 
+test("manual guidance cannot invoke installation without a browser-provided offer", async () => {
+  controller = connectInstallPrompt(update);
+  jest.advanceTimersByTime(4000);
+  expect(update).toHaveBeenLastCalledWith("manual");
+  update.mockClear();
+  await controller.install();
+  expect(update).not.toHaveBeenCalled();
+  expect(storage.has(installDismissKey)).toBe(false);
+});
+
 test("a failed native prompt offers browser-menu instructions", async () => {
   controller = connectInstallPrompt(update);
   const event = offer();
@@ -132,7 +214,10 @@ test("a failed native prompt offers browser-menu instructions", async () => {
 
 test("worker registration uses root scope and bypasses stale script caches", async () => {
   await registerPwaWorker();
-  expect(device.serviceWorker.register).toHaveBeenCalledWith("/sw.js", { scope: "/", updateViaCache: "none" });
+  expect(device.serviceWorker.register).toHaveBeenCalledWith("/sw.js", {
+    scope: "/",
+    updateViaCache: "none",
+  });
   device.serviceWorker.register.mockClear();
   browser.isSecureContext = false;
   await registerPwaWorker();
